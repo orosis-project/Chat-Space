@@ -242,6 +242,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const setActiveTab = (activeTab, inactiveTab, activeForm, inactiveForm) => {
+        activeTab.classList.add('text-blue-600', 'border-blue-600');
+        activeTab.classList.remove('border-transparent');
+        inactiveTab.classList.remove('text-blue-600', 'border-blue-600');
+        inactiveTab.classList.add('border-transparent');
+        activeForm.classList.remove('hidden');
+        inactiveForm.classList.add('hidden');
+    };
+
     // --- Event Listeners ---
     logoutBtn.addEventListener('click', handleLogout);
     sendBtn.addEventListener('click', sendMessage);
@@ -249,30 +258,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendMessage();
     });
 
-    loginTab.addEventListener('click', () => {
-        loginTab.classList.add('text-blue-600', 'border-blue-600');
-        signupTab.classList.remove('text-blue-600', 'border-blue-600');
-        loginForm.classList.remove('hidden');
-        signupForm.classList.add('hidden');
-    });
-    signupTab.addEventListener('click', () => {
-        signupTab.classList.add('text-blue-600', 'border-blue-600');
-        loginTab.classList.remove('text-blue-600', 'border-blue-600');
-        signupForm.classList.remove('hidden');
-        loginForm.classList.add('hidden');
-    });
-    createTab.addEventListener('click', () => {
-        createTab.classList.add('text-blue-600', 'border-blue-600');
-        joinTab.classList.remove('text-blue-600', 'border-blue-600');
-        createRoomForm.classList.remove('hidden');
-        joinRoomForm.classList.add('hidden');
-    });
-    joinTab.addEventListener('click', () => {
-        joinTab.classList.add('text-blue-600', 'border-blue-600');
-        createTab.classList.remove('text-blue-600', 'border-blue-600');
-        joinRoomForm.classList.remove('hidden');
-        createRoomForm.classList.add('hidden');
-    });
+    loginTab.addEventListener('click', () => setActiveTab(loginTab, signupTab, loginForm, signupForm));
+    signupTab.addEventListener('click', () => setActiveTab(signupTab, loginTab, signupForm, loginForm));
+    createTab.addEventListener('click', () => setActiveTab(createTab, joinTab, createRoomForm, joinRoomForm));
+    joinTab.addEventListener('click', () => setActiveTab(joinTab, createTab, joinRoomForm, createRoomForm));
+    
     loginForm.addEventListener('submit', (e) => handleAuth(e, '/login'));
     signupForm.addEventListener('submit', (e) => handleAuth(e, '/signup'));
     createRoomForm.addEventListener('submit', handleCreateRoom);
