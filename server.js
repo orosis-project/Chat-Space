@@ -25,6 +25,7 @@ async function initializeDatabase() {
         await db.write();
     } catch (error) {
         console.error("FATAL: Could not initialize database.", error);
+        process.exit(1);
     }
 }
 initializeDatabase();
@@ -156,6 +157,9 @@ io.on('connection', (socket) => {
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
                 await db.read();
+                if (!db.data.rooms[roomCode].messages) {
+                    db.data.rooms[roomCode].messages = [];
+                }
                 db.data.rooms[roomCode].messages.push(messageData);
                 await db.write();
                 io.to(roomCode).emit('chat-message', messageData);
