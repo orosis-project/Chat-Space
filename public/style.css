@@ -12,8 +12,92 @@
     --avatar-size: 32px;
 }
 
-/* Page, Join Page, and Modal styles are largely the same */
-/* ... */
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+#app-container {
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--background-color);
+    display: flex;
+    position: relative;
+    overflow: hidden;
+}
+
+.page {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease-in-out, visibility 0.5s;
+    top: 0;
+    left: 0;
+}
+
+.page.active {
+    opacity: 1;
+    visibility: visible;
+    position: relative;
+}
+
+
+/* Join Page Styles */
+#join-page {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.form-container h1 {
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
+.form-container p {
+    color: var(--light-text-color);
+    margin-bottom: 30px;
+}
+
+#join-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 350px;
+}
+
+input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+.room-actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+.room-actions button {
+    flex-grow: 1;
+}
+
+.error-message {
+    color: var(--error-color);
+    margin-bottom: 15px;
+    height: 20px;
+    font-weight: bold;
+}
+
 
 /* --- Chat Page Styles --- */
 #chat-page { flex-direction: row; }
@@ -52,11 +136,16 @@
     width: var(--avatar-size);
     height: var(--avatar-size);
     border-radius: 50%;
-    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
+    background-color: #ccc; /* Default background */
+}
+.user-avatar svg {
+    width: 60%;
+    height: 60%;
+    fill: white;
 }
 .user-actions {
     display: none;
@@ -72,6 +161,17 @@
 }
 .user-actions button:hover { color: var(--primary-color); }
 .user-actions .ban-btn:hover { color: var(--error-color); }
+
+#room-info {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+#leave-room-btn {
+    width: 100%;
+    margin-top: 10px;
+    background-color: var(--error-color);
+}
 
 #main-chat { flex-grow: 1; display: flex; flex-direction: column; }
 #chat-window { flex-grow: 1; padding: 20px; overflow-y: auto; }
@@ -137,3 +237,49 @@
 }
 
 .danger-btn { background-color: var(--error-color); }
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+.modal.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.modal-content {
+    background-color: #fefefe;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 8px;
+    position: relative;
+}
+.modal-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+.settings-section {
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    padding-top: 20px;
+}
+#edit-textarea {
+    width: 100%;
+    min-height: 80px;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
