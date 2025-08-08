@@ -1,170 +1,211 @@
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f9;
+:root {
+    --primary-color: #007bff;
+    --secondary-color: #f4f4f9;
+    --background-color: #ffffff;
+    --text-color: #333;
+    --light-text-color: #888;
+    --own-message-bg: #007bff;
+    --other-message-bg: #e9e9eb;
+    --error-color: #dc3545;
+}
+
+html, body {
+    height: 100%;
     margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
 }
 
 #app-container {
-    width: 100%;
-    max-width: 600px;
-    height: 90vh;
-    max-height: 800px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--background-color);
+    display: flex;
+    position: relative;
     overflow: hidden;
-    position: relative; /* Needed for positioning pages */
 }
 
 .page {
-    position: absolute; /* Position pages on top of each other */
+    position: absolute;
     width: 100%;
     height: 100%;
     display: flex;
-    flex-direction: column;
-    opacity: 0; /* Start with pages invisible */
-    visibility: hidden; /* Hide from screen readers and interactions */
-    transition: opacity 0.5s ease-in-out, visibility 0.5s; /* Smooth fade transition */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease-in-out, visibility 0.5s;
+    top: 0;
+    left: 0;
 }
 
 .page.active {
-    opacity: 1; /* Make the active page visible */
+    opacity: 1;
     visibility: visible;
+    position: relative;
 }
 
-/* Join Page Styles */
+/* --- Join Page Styles --- */
 #join-page {
     justify-content: center;
     align-items: center;
+    text-align: center;
     padding: 20px;
 }
 
-.form-container {
-    text-align: center;
-    width: 100%;
-}
-
 .form-container h1 {
-    color: #333;
-    margin-bottom: 20px;
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
+.form-container p {
+    color: var(--light-text-color);
+    margin-bottom: 30px;
 }
 
-input[type="text"] {
-    width: 80%;
+#join-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 350px;
+}
+
+input[type="text"], input[type="password"] {
+    width: 100%;
     padding: 12px;
     margin-bottom: 15px;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 16px;
+    box-sizing: border-box;
 }
 
-button {
-    padding: 12px 20px;
-    border: none;
-    background-color: #007bff;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s;
-}
-
-button:hover {
-    background-color: #0056b3;
-}
-
-.room-options {
-    margin-top: 20px;
-}
-
-.room-options p {
-    margin: 10px 0;
-    color: #888;
-}
-
-/* Chat Page Styles */
-#chat-page {
-    flex-direction: column;
-}
-
-#chat-header {
+.room-actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background-color: #007bff;
-    color: white;
+    gap: 10px;
+    width: 100%;
+}
+.room-actions button {
+    flex-grow: 1;
 }
 
-#chat-header h2 {
+.error-message {
+    color: var(--error-color);
+    margin-bottom: 15px;
+    height: 20px;
+    font-weight: bold;
+}
+
+/* --- Chat Page Styles --- */
+#chat-page {
+    flex-direction: row;
+}
+
+#sidebar {
+    width: 240px;
+    background-color: var(--secondary-color);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #ddd;
+}
+#sidebar h3 {
+    margin-top: 0;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+#user-list {
+    list-style: none;
+    padding: 0;
     margin: 0;
-    font-size: 18px;
+    flex-grow: 1;
+    overflow-y: auto;
 }
-
+#user-list li {
+    padding: 8px 0;
+    color: var(--text-color);
+}
+#room-info {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
 #leave-room-btn {
-    background-color: #dc3545;
+    width: 100%;
+    margin-top: 10px;
+    background-color: var(--error-color);
 }
-
 #leave-room-btn:hover {
     background-color: #c82333;
+}
+
+#main-chat {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--background-color);
 }
 
 #chat-window {
     flex-grow: 1;
     padding: 20px;
     overflow-y: auto;
-    background-color: #f9f9f9;
-    border-bottom: 1px solid #ddd;
 }
 
 #messages {
     display: flex;
     flex-direction: column;
+    gap: 15px;
 }
 
 .message {
-    margin-bottom: 15px;
-    max-width: 80%;
+    display: flex;
+    flex-direction: column;
+    max-width: 70%;
 }
-
-.message .username {
-    font-weight: bold;
+.message .info {
+    display: flex;
+    gap: 8px;
+    align-items: center;
     font-size: 12px;
-    color: #555;
+    color: var(--light-text-color);
     margin-bottom: 4px;
 }
-
-.message .text {
-    background-color: #e9e9eb;
+.message .username {
+    font-weight: bold;
+}
+.message .text, .message .image-container {
     padding: 10px;
     border-radius: 10px;
     word-wrap: break-word;
+    background-color: var(--other-message-bg);
+}
+.message .image-container img {
+    max-width: 100%;
+    border-radius: 8px;
+    display: block;
 }
 
 .message.own {
     align-self: flex-end;
 }
-
-.message.own .text {
-    background-color: #007bff;
+.message.own .info {
+    justify-content: flex-end;
+}
+.message.own .text, .message.own .image-container {
+    background-color: var(--own-message-bg);
     color: white;
 }
 
 .notification {
     text-align: center;
-    color: #888;
+    color: var(--light-text-color);
     font-size: 12px;
-    margin-bottom: 10px;
+    font-style: italic;
 }
 
 #typing-indicator {
+    padding: 0 20px 5px;
     font-style: italic;
-    color: #888;
+    color: var(--light-text-color);
     font-size: 12px;
     height: 18px;
 }
@@ -172,15 +213,28 @@ button:hover {
 #chat-input-container {
     display: flex;
     padding: 15px;
-    background-color: #fff;
+    background-color: var(--secondary-color);
+    border-top: 1px solid #ddd;
+    gap: 10px;
 }
-
 #message-input {
     flex-grow: 1;
-    margin-right: 10px;
-    margin-bottom: 0;
+    margin: 0;
 }
-
+.input-action-btn {
+    background: none;
+    border: none;
+    color: var(--light-text-color);
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+.input-action-btn:hover {
+    color: var(--primary-color);
+}
 #send-btn {
-    white-space: nowrap;
+    color: var(--primary-color);
 }
