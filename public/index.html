@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Room</title>
+    <title>Chat Space</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
@@ -12,34 +14,51 @@
         <!-- Login/Join Page -->
         <div id="join-page" class="page active">
             <div class="form-container">
-                <h1>Welcome to Chat!</h1>
-                <input type="text" id="username-input" placeholder="Enter your username">
-                <div class="room-options">
-                    <button id="create-room-btn">Create a New Room</button>
-                    <p>or</p>
-                    <input type="text" id="room-code-input" placeholder="Enter room code to join">
-                    <button id="join-room-btn">Join Room</button>
-                </div>
+                <h1>Welcome to Chat Space</h1>
+                <p>Create a private room or join an existing one.</p>
+                <div id="error-message" class="error-message"></div>
+                <form id="join-form">
+                    <input type="text" id="username-input" placeholder="Your Username" required>
+                    <input type="text" id="room-code-input" placeholder="Custom Room Code" required>
+                    <input type="password" id="password-input" placeholder="Room Password" required>
+                    <div class="room-actions">
+                        <button type="button" id="create-room-btn">Create Room</button>
+                        <button type="button" id="join-room-btn">Join Room</button>
+                    </div>
+                </form>
             </div>
         </div>
 
         <!-- Chat Page -->
         <div id="chat-page" class="page">
-            <div id="chat-header">
-                <h2>Chat Room: <span id="room-code-display"></span></h2>
-                <button id="leave-room-btn">Leave Room</button>
+            <div id="sidebar">
+                <h3>Online Users</h3>
+                <ul id="user-list"></ul>
+                <div id="room-info">
+                    <p>Room Code:</p>
+                    <strong id="room-code-display"></strong>
+                </div>
+                 <button id="leave-room-btn">Leave Room</button>
             </div>
-            <div id="chat-window">
-                <div id="messages"></div>
+            <div id="main-chat">
+                <div id="chat-window">
+                    <div id="messages"></div>
+                </div>
                 <div id="typing-indicator"></div>
-            </div>
-            <div id="chat-input-container">
-                <input type="text" id="message-input" placeholder="Type a message...">
-                <button id="send-btn">Send</button>
+                <div id="chat-input-container">
+                    <button id="emoji-btn" class="input-action-btn"><i class="ri-emotion-happy-line"></i></button>
+                    <label for="image-upload" class="input-action-btn">
+                        <i class="ri-image-add-line"></i>
+                        <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                    </label>
+                    <input type="text" id="message-input" placeholder="Type a message...">
+                    <button id="send-btn" class="input-action-btn"><i class="ri-send-plane-2-fill"></i></button>
+                </div>
             </div>
         </div>
     </div>
-
+    
+    <audio id="notification-sound" src="notification.mp3" preload="auto"></audio>
     <script src="main.js"></script>
 </body>
 </html>
