@@ -1,13 +1,15 @@
 {
-  "name": "chat-app",
+  "name": "chat-space",
   "version": "1.0.0",
-  "description": "A real-time chat application",
+  "description": "A real-time chat application with moderation",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "express": "^4.19.2",
+    "lowdb": "^7.0.1",
     "socket.io": "^4.7.5",
     "uuid": "^9.0.1"
   },
