@@ -11,14 +11,85 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Element Selectors ---
+    const pages = {
+        join: document.getElementById('join-page'),
+        chat: document.getElementById('chat-page'),
+    };
+    const errorMessageDiv = document.getElementById('error-message');
+    const usernameInput = document.getElementById('username-input');
+    const roomCodeInput = document.getElementById('room-code-input');
+    const passwordInput = document.getElementById('password-input');
+    const createRoomBtn = document.getElementById('create-room-btn');
+    const joinRoomBtn = document.getElementById('join-room-btn');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
     const userList = document.getElementById('user-list');
     const replyPreview = document.getElementById('reply-preview');
     const editModal = document.getElementById('edit-modal');
+    const roomCodeDisplay = document.getElementById('room-code-display');
+    const settingsBtn = document.getElementById('settings-btn');
     
     // --- Core Functions ---
+    function showPage(pageName) {
+        Object.values(pages).forEach(p => p.classList.remove('active'));
+        pages[pageName].classList.add('active');
+    }
+
+    function getFormData() {
+        const username = usernameInput.value.trim();
+        const roomCode = roomCodeInput.value.trim();
+        const password = passwordInput.value.trim();
+        if (!username || !roomCode || !password) {
+            showError('All fields are required.');
+            return null;
+        }
+        return { username, roomCode, password };
+    }
+
+    function showError(message) {
+        errorMessageDiv.textContent = message;
+        setTimeout(() => errorMessageDiv.textContent = '', 3000);
+    }
+
+    async function handleJoinRoom() {
+        const roomData = getFormData();
+        if (!roomData) return;
+        try {
+            const response = await fetch('/login-room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(roomData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+            
+            state.username = roomData.username;
+            state.currentRoom = roomData.roomCode;
+            state.isOwner = data.isOwner;
+            
+            socket.emit('join-request', { roomCode: state.currentRoom, username: state.username });
+        } catch (error) {
+            showError(error.message);
+        }
+    }
+
+    async function handleCreateRoom() {
+        const roomData = getFormData();
+        if (!roomData) return;
+        try {
+            const response = await fetch('/create-room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(roomData)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+            handleJoinRoom();
+        } catch (error) {
+            showError(error.message);
+        }
+    }
+    
     function sendMessage() {
         const message = messageInput.value.trim();
         if (message) {
@@ -42,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const avatar = document.createElement('div');
         avatar.className = 'user-avatar';
-        avatar.textContent = username.charAt(0).toUpperCase();
+        avatar.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>`;
         avatar.style.backgroundColor = generateColor(username);
 
         const messageDiv = document.createElement('div');
@@ -58,10 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const mentionRegex = /@(\w+)/g;
         const formattedMessage = message.replace(mentionRegex, (match, mentionedUser) => {
-            if (mentionedUser === state.username) {
-                return `<span class="mention">${match}</span>`;
-            }
-            return match;
+            return (mentionedUser === state.username) ? `<span class="mention">${match}</span>` : match;
         });
 
         messageDiv.innerHTML = `
@@ -83,11 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ${isOwnMessage ? `<button class="edit-btn" data-id="${id}"><i class="ri-pencil-line"></i></button><button class="delete-btn" data-id="${id}"><i class="ri-delete-bin-line"></i></button>` : ''}
         `;
         
-        if(isOwnMessage) {
-            wrapper.appendChild(actions);
-        } else {
-            wrapper.insertBefore(actions, wrapper.firstChild);
-        }
+        if(isOwnMessage) wrapper.appendChild(actions);
+        else wrapper.insertBefore(actions, wrapper.firstChild);
 
         messagesContainer.appendChild(wrapper);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -97,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         userList.innerHTML = '';
         users.forEach(user => {
             const li = document.createElement('li');
-            const avatar = `<div class="user-avatar" style="background-color: ${generateColor(user)}">${user.charAt(0).toUpperCase()}</div>`;
+            const avatar = `<div class="user-avatar" style="background-color: ${generateColor(user)}"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg></div>`;
             let actions = '';
             if (state.isOwner && user !== state.username) {
                 actions = `
@@ -130,6 +195,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     }
 
+    function displayNotification(text) {
+        const el = document.createElement('div');
+        el.className = 'notification';
+        el.textContent = text;
+        messagesContainer.appendChild(el);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    // --- Event Listeners ---
+    createRoomBtn.addEventListener('click', handleCreateRoom);
+    joinRoomBtn.addEventListener('click', handleJoinRoom);
+    messageInput.addEventListener('keypress', e => e.key === 'Enter' && e.target.closest('#chat-input-container') && sendMessage());
+    
     // --- Event Delegation ---
     messagesContainer.addEventListener('click', e => {
         const replyBtn = e.target.closest('.reply-btn');
@@ -188,6 +266,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Socket Handlers ---
+    socket.on('join-successful', ({ previousMessages }) => {
+        showPage('chat');
+        roomCodeDisplay.textContent = state.currentRoom;
+        if(state.isOwner) settingsBtn.style.display = 'block';
+        previousMessages.forEach(addMessageToUI);
+    });
+    socket.on('user-joined', ({ username, userList: users }) => {
+        displayNotification(`${username} has joined the room.`);
+        updateUserList(users);
+    });
+    socket.on('user-left', ({ username, userList: users }) => {
+        displayNotification(`${username} has left the room.`);
+        updateUserList(users);
+    });
     socket.on('message-edited', ({ messageId, newMessage }) => {
         const messageContent = document.querySelector(`#msg-${messageId} .message-content`);
         const messageMeta = document.querySelector(`#msg-${messageId} .message-meta`);
@@ -203,7 +295,4 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.reload();
     });
     socket.on('user-banned', username => displayNotification(`${username} has been banned from the room.`));
-
-    // Other handlers (join, etc.) are in the previous versions
-    // For brevity, they are omitted but assumed to be here.
 });
