@@ -31,9 +31,9 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 
 app.post('/signup', async (req, res) => {
     try {
+        await db.read();
         const { username, password } = req.body;
         if (!username || !password) return res.status(400).json({ message: "Username and password are required." });
-        await db.read();
         if (db.data.users[username]) return res.status(409).json({ message: "User already exists." });
         const salt = await bcrypt.genSalt(10);
         db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt), disabled: false };
@@ -46,8 +46,8 @@ app.post('/signup', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
         await db.read();
+        const { username, password } = req.body;
         const user = db.data.users[username];
         if (!user) return res.status(404).json({ message: "User not found." });
         if (user.disabled) return res.status(403).json({ message: "This account has been disabled." });
@@ -61,9 +61,9 @@ app.post('/login', async (req, res) => {
 
 app.post('/create-room', async (req, res) => {
     try {
+        await db.read();
         const { roomCode, username, password } = req.body;
         if (!roomCode || !username || !password) return res.status(400).json({ message: "All fields are required." });
-        await db.read();
         if (db.data.rooms[roomCode]) return res.status(409).json({ message: "Room code already exists." });
         const salt = await bcrypt.genSalt(10);
         db.data.rooms[roomCode] = { owner: username, passwordHash: await bcrypt.hash(password, salt), bannedUsers: [], messages: [] };
@@ -77,8 +77,8 @@ app.post('/create-room', async (req, res) => {
 
 app.post('/login-room', async (req, res) => {
     try {
-        const { roomCode, username, password } = req.body;
         await db.read();
+        const { roomCode, username, password } = req.body;
         const room = db.data.rooms[roomCode];
         if (!room) return res.status(404).json({ message: "Room not found." });
         if (room.bannedUsers && room.bannedUsers.includes(username)) return res.status(403).json({ message: "You are banned from this room." });
@@ -93,8 +93,8 @@ app.post('/login-room', async (req, res) => {
 
 app.get('/my-rooms/:username', async (req, res) => {
     try {
-        const { username } = req.params;
         await db.read();
+        const { username } = req.params;
         const userRooms = Object.keys(db.data.rooms).filter(roomCode => {
             const room = db.data.rooms[roomCode];
             return room.owner === username || (room.messages && room.messages.some(m => m.username === username));
