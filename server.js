@@ -5,7 +5,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcrypt');
-const { JSONFile, Low } = require('lowdb');
+const { Low } = require('lowdb');
+const { JSONFile } = require('lowdb/node'); // Corrected import
 
 // --- Database Setup ---
 const file = path.join(__dirname, 'db.json');
@@ -15,7 +16,7 @@ const db = new Low(adapter);
 async function initializeDatabase() {
     await db.read();
     // The DB now stores room details including the owner and hashed password
-    db.data = db.data || { rooms: {} }; // { roomCode: { owner, passwordHash, messages } }
+    db.data = db.data || { rooms: {} }; // { roomCode: { owner, passwordHash, mode, restrictedUsers, messages } }
     await db.write();
 }
 initializeDatabase();
@@ -32,14 +33,13 @@ app.use(express.json()); // Middleware to parse JSON bodies
 app.use(express.static('public'));
 
 // In-memory store for active users and rooms
-const activeRooms = {}; // { roomCode: { users: { socketId: username }, typing: [] } }
+const activeRooms = {}; // { roomCode: { users: { socketId: username }, typing: [], pending: {} } }
 
 // --- Routes ---
 app.get('/chat', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-// Route to create a new room with a password
 app.post('/create-room', async (req, res) => {
     const { roomCode, username, password } = req.body;
     if (!roomCode || !username || !password) {
@@ -54,51 +54,97 @@ app.post('/create-room', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    db.data.rooms[roomCode] = { owner: username, passwordHash, messages: [] };
+    db.data.rooms[roomCode] = { owner: username, passwordHash, mode: 'open', restrictedUsers: [], messages: [] };
     await db.write();
     
-    activeRooms[roomCode] = { users: {}, typing: [] };
+    activeRooms[roomCode] = { users: {}, typing: [], pending: {} };
     res.status(201).json({ message: "Room created successfully." });
 });
 
-// Route to log into an existing room
 app.post('/login-room', async (req, res) => {
-    const { roomCode, password } = req.body;
+    const { roomCode, username, password } = req.body;
     await db.read();
     const room = db.data.rooms[roomCode];
 
-    if (!room) {
-        return res.status(404).json({ message: "Room not found." });
-    }
+    if (!room) return res.status(404).json({ message: "Room not found." });
 
     const isMatch = await bcrypt.compare(password, room.passwordHash);
-    if (!isMatch) {
-        return res.status(401).json({ message: "Invalid password." });
-    }
+    if (!isMatch) return res.status(401).json({ message: "Invalid password." });
     
-    // Ensure the room is initialized in the active rooms list if server restarted
-    if (!activeRooms[roomCode]) {
-        activeRooms[roomCode] = { users: {}, typing: [] };
-    }
+    if (!activeRooms[roomCode]) activeRooms[roomCode] = { users: {}, typing: [], pending: {} };
 
-    res.status(200).json({ message: "Login successful." });
+    const isOwner = room.owner === username;
+    res.status(200).json({ message: "Login successful.", isOwner, roomMode: room.mode, restrictedUsers: room.restrictedUsers });
 });
 
 // --- Socket.IO Logic ---
 io.on('connection', (socket) => {
-    socket.on('join-room', async ({ roomCode, username }) => {
-        if (activeRooms[roomCode]) {
-            socket.join(roomCode);
-            activeRooms[roomCode].users[socket.id] = username;
 
-            await db.read();
-            const previousMessages = db.data.rooms[roomCode]?.messages || [];
-            socket.emit('previous-messages', previousMessages);
+    const joinRoom = async (roomCode, username) => {
+        socket.join(roomCode);
+        activeRooms[roomCode].users[socket.id] = username;
+        
+        await db.read();
+        const roomData = db.data.rooms[roomCode];
+        socket.emit('join-successful', {
+            previousMessages: roomData.messages || [],
+            isRestricted: roomData.restrictedUsers.includes(username)
+        });
 
-            const userList = Object.values(activeRooms[roomCode].users);
-            io.to(roomCode).emit('user-joined', { username, userList });
-        } else {
-            socket.emit('error', 'Room not found or server error.');
+        const userList = Object.values(activeRooms[roomCode].users);
+        io.to(roomCode).emit('user-joined', { username, userList });
+    };
+
+    socket.on('join-request', async ({ roomCode, username }) => {
+        await db.read();
+        const room = db.data.rooms[roomCode];
+        const ownerSocketId = Object.keys(activeRooms[roomCode].users).find(id => activeRooms[roomCode].users[id] === room.owner);
+
+        switch (room.mode) {
+            case 'open':
+                joinRoom(roomCode, username);
+                break;
+            case 'approve':
+                activeRooms[roomCode].pending[socket.id] = username;
+                socket.emit('waiting-for-approval');
+                if (ownerSocketId) {
+                    io.to(ownerSocketId).emit('user-waiting-approval', { socketId: socket.id, username });
+                }
+                break;
+            case 'restricted':
+                if (!room.restrictedUsers.includes(username)) {
+                    room.restrictedUsers.push(username);
+                    await db.write();
+                }
+                joinRoom(roomCode, username);
+                break;
+        }
+    });
+
+    socket.on('approve-user', ({ roomCode, socketId }) => {
+        const username = activeRooms[roomCode]?.pending[socketId];
+        if (username) {
+            joinRoom(roomCode, username);
+            delete activeRooms[roomCode].pending[socketId];
+        }
+    });
+    
+    socket.on('promote-user', async ({ roomCode, username }) => {
+        await db.read();
+        const room = db.data.rooms[roomCode];
+        if (room) {
+            room.restrictedUsers = room.restrictedUsers.filter(u => u !== username);
+            await db.write();
+            io.to(roomCode).emit('user-promoted', { username, restrictedUsers: room.restrictedUsers });
+        }
+    });
+
+    socket.on('change-room-mode', async ({ roomCode, mode }) => {
+        await db.read();
+        if (db.data.rooms[roomCode]) {
+            db.data.rooms[roomCode].mode = mode;
+            await db.write();
+            io.to(roomCode).emit('room-mode-changed', mode);
         }
     });
 
@@ -118,42 +164,6 @@ io.on('connection', (socket) => {
         }
     });
     
-    socket.on('image-message', async (data) => {
-        const { roomCode, image } = data;
-        const room = activeRooms[roomCode];
-        if (room && room.users[socket.id]) {
-            const username = room.users[socket.id];
-            const messageData = {
-                username,
-                image,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-            db.data.rooms[roomCode].messages.push(messageData);
-            await db.write();
-            io.to(roomCode).emit('image-message', messageData);
-        }
-    });
-
-    socket.on('typing', (roomCode) => {
-        const room = activeRooms[roomCode];
-        if (room && room.users[socket.id]) {
-            const username = room.users[socket.id];
-            if (!room.typing.includes(username)) {
-                room.typing.push(username);
-            }
-            io.to(roomCode).emit('typing', room.typing);
-        }
-    });
-
-    socket.on('stop-typing', (roomCode) => {
-        const room = activeRooms[roomCode];
-        if (room && room.users[socket.id]) {
-            const username = room.users[socket.id];
-            room.typing = room.typing.filter(u => u !== username);
-            io.to(roomCode).emit('typing', room.typing);
-        }
-    });
-
     socket.on('disconnect', () => {
         for (const roomCode in activeRooms) {
             const room = activeRooms[roomCode];
@@ -171,6 +181,7 @@ io.on('connection', (socket) => {
         }
     });
 });
+
 
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
