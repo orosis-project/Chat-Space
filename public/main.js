@@ -3,7 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let state = { username: null, currentRoom: null, isOwner: false };
 
     // --- Element Selectors ---
-    const pages = { auth: document.getElementById('auth-page'), menu: document.getElementById('menu-page'), chat: document.getElementById('chat-page') };
+    const pages = { 
+        auth: document.getElementById('auth-page'), 
+        menu: document.getElementById('menu-page'), 
+        chat: document.getElementById('chat-page') 
+    };
     const authError = document.getElementById('auth-error');
     const menuError = document.getElementById('menu-error');
     
