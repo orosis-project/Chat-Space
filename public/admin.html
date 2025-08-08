@@ -5,27 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
+    <style type="text/tailwindcss">
+        @layer components {
+            .btn-primary {
+                @apply w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md hover:shadow-lg;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white font-sans">
-    <div id="admin-container" class="container mx-auto p-4">
+<body class="bg-gray-900 text-white font-sans antialiased">
+    <div id="admin-container" class="container mx-auto p-4 md:p-8">
         <!-- Admin Login -->
-        <div id="admin-login-page" class="flex items-center justify-center h-screen">
-            <div class="w-full max-w-sm bg-gray-800 p-8 rounded-lg shadow-lg">
-                <h1 class="text-2xl font-bold text-center mb-6">Admin Access</h1>
-                <form id="admin-login-form" class="space-y-4">
-                    <input type="password" id="admin-password" placeholder="Password" class="form-input bg-gray-700 text-white border-gray-600" required>
+        <div id="admin-login-page" class="flex items-center justify-center min-h-screen">
+            <div class="w-full max-w-sm bg-gray-800 p-8 rounded-xl shadow-lg">
+                <h1 class="text-3xl font-bold text-center mb-6">Admin Access</h1>
+                <form id="admin-login-form" class="space-y-6">
+                    <input type="password" id="admin-password" placeholder="Password" class="w-full px-4 py-3 bg-gray-700 text-white border-2 border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required>
                     <button type="submit" class="btn-primary w-full">Enter</button>
                 </form>
-                <div id="admin-error" class="text-red-500 text-center mt-4"></div>
+                <div id="admin-error" class="text-red-500 text-center mt-4 h-5 font-semibold"></div>
             </div>
         </div>
 
         <!-- Admin Dashboard -->
         <div id="admin-dashboard" class="hidden">
             <h1 class="text-4xl font-bold mb-8">Admin Dashboard</h1>
-            <div id="rooms-container" class="space-y-8">
-                <!-- Rooms will be injected here by JS -->
+            
+            <!-- Users Section -->
+            <div class="mb-12">
+                <h2 class="text-3xl font-semibold mb-4 border-b border-gray-700 pb-2">User Management</h2>
+                <div id="users-container" class="space-y-3">
+                    <!-- Users will be injected here -->
+                </div>
+            </div>
+
+            <!-- Rooms Section -->
+            <div>
+                <h2 class="text-3xl font-semibold mb-4 border-b border-gray-700 pb-2">Room Management</h2>
+                <div id="rooms-container" class="space-y-8">
+                    <!-- Rooms will be injected here -->
+                </div>
             </div>
         </div>
     </div>
