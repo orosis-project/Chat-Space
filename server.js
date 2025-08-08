@@ -14,22 +14,6 @@ const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
 const db = new Low(adapter, { users: {}, rooms: {}, adminPasswordHash: '' });
 
-async function initializeDatabase() {
-    try {
-        await db.read();
-        db.data = db.data || { users: {}, rooms: {}, adminPasswordHash: '' };
-        if (!db.data.adminPasswordHash) {
-            const salt = await bcrypt.genSalt(10);
-            db.data.adminPasswordHash = await bcrypt.hash('Austin', salt);
-        }
-        await db.write();
-    } catch (error) {
-        console.error("FATAL: Could not initialize database.", error);
-        process.exit(1);
-    }
-}
-initializeDatabase();
-
 // --- Express & Socket.IO Setup ---
 const app = express();
 const server = http.createServer(app);
@@ -41,7 +25,7 @@ app.use(express.static('public'));
 
 const activeRooms = {};
 
-// --- Routes with Robust Error Handling ---
+// --- Routes ---
 app.get('/chat', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
@@ -97,7 +81,7 @@ app.post('/login-room', async (req, res) => {
         await db.read();
         const room = db.data.rooms[roomCode];
         if (!room) return res.status(404).json({ message: "Room not found." });
-        if (room.bannedUsers.includes(username)) return res.status(403).json({ message: "You are banned from this room." });
+        if (room.bannedUsers && room.bannedUsers.includes(username)) return res.status(403).json({ message: "You are banned from this room." });
         const isMatch = await bcrypt.compare(password, room.passwordHash);
         if (!isMatch) return res.status(401).json({ message: "Invalid password." });
         if (!activeRooms[roomCode]) activeRooms[roomCode] = { users: {} };
@@ -182,4 +166,22 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+// --- Server Startup ---
+async function startServer() {
+    try {
+        await db.read();
+        db.data = db.data || { users: {}, rooms: {}, adminPasswordHash: '' };
+        if (!db.data.adminPasswordHash) {
+            const salt = await bcrypt.genSalt(10);
+            db.data.adminPasswordHash = await bcrypt.hash('Austin', salt);
+        }
+        await db.write();
+        
+        server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+    } catch (error) {
+        console.error("FATAL: Could not start server.", error);
+        process.exit(1);
+    }
+}
+
+startServer();
