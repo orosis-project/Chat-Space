@@ -36,9 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const userList = document.getElementById('user-list');
-    const replyPreview = document.getElementById('reply-preview');
-    const editModal = document.getElementById('edit-modal');
-
 
     // --- Core Functions ---
     const showPage = (pageName) => {
@@ -71,8 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Failed to fetch rooms.');
             const rooms = await res.json();
             myRoomsList.innerHTML = '';
+            const noRoomsEl = document.getElementById('no-rooms-message');
             if (rooms.length > 0) {
-                noRoomsMessage.style.display = 'none';
+                if(noRoomsEl) noRoomsEl.style.display = 'none';
                 rooms.forEach(roomCode => {
                     const roomBtn = document.createElement('button');
                     roomBtn.className = "w-full text-left p-3 bg-gray-100 hover:bg-blue-100 rounded-lg transition font-semibold";
@@ -81,12 +79,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     myRoomsList.appendChild(roomBtn);
                 });
             } else {
-                myRoomsList.appendChild(noRoomsMessage);
-                noRoomsMessage.style.display = 'block';
+                 if(noRoomsEl) {
+                    myRoomsList.appendChild(noRoomsEl);
+                    noRoomsEl.style.display = 'block';
+                 }
             }
         } catch (error) {
-            noRoomsMessage.textContent = "Could not load your rooms.";
-            noRoomsMessage.style.display = 'block';
+            const noRoomsEl = document.getElementById('no-rooms-message');
+            if(noRoomsEl) {
+                noRoomsEl.textContent = "Could not load your rooms.";
+                noRoomsEl.style.display = 'block';
+            }
         }
     };
     
@@ -174,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const addMessageToUI = (data) => {
-        const { id, username, message, timestamp, replyTo, edited } = data;
+        const { id, username, message, timestamp, edited } = data;
         const isOwnMessage = username === state.username;
 
         const wrapper = document.createElement('div');
@@ -228,8 +231,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return color;
     };
 
+    const sendMessage = () => {
+        const message = messageInput.value.trim();
+        if (message) {
+            socket.emit('chat-message', {
+                roomCode: state.currentRoom,
+                message: message,
+            });
+            messageInput.value = '';
+        }
+    };
+
     // --- Event Listeners ---
     logoutBtn.addEventListener('click', handleLogout);
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
     loginTab.addEventListener('click', () => {
         loginTab.classList.add('text-blue-600', 'border-blue-600');
         signupTab.classList.remove('text-blue-600', 'border-blue-600');
