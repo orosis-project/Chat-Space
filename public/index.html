@@ -9,8 +9,8 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        .page { display: none; }
-        .page.active { display: flex; }
+        .page { display: none !important; }
+        .page.active { display: flex !important; }
         #chat-window::-webkit-scrollbar { width: 8px; }
         #chat-window::-webkit-scrollbar-track { background: transparent; }
         #chat-window::-webkit-scrollbar-thumb {
@@ -103,7 +103,7 @@
         </div>
 
         <!-- Chat Page -->
-        <div id="chat-page" class="page hidden flex h-full">
+        <div id="chat-page" class="page hidden h-full">
             <div id="sidebar" class="w-64 bg-white p-4 flex flex-col border-r border-gray-200">
                 <div class="flex justify-between items-center mb-4 border-b pb-2 border-gray-200">
                     <h3 class="text-lg font-bold text-gray-800">Online Users</h3>
