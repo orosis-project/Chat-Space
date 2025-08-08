@@ -15,12 +15,16 @@ const adapter = new JSONFile(file);
 const db = new Low(adapter, { users: {}, rooms: {}, adminPasswordHash: '' });
 
 async function initializeDatabase() {
-    await db.read();
-    db.data = db.data || { users: {}, rooms: {}, adminPasswordHash: '' };
-    if (!db.data.adminPasswordHash) {
-        const salt = await bcrypt.genSalt(10);
-        db.data.adminPasswordHash = await bcrypt.hash('Austin', salt);
+    try {
+        await db.read();
+        db.data = db.data || { users: {}, rooms: {}, adminPasswordHash: '' };
+        if (!db.data.adminPasswordHash) {
+            const salt = await bcrypt.genSalt(10);
+            db.data.adminPasswordHash = await bcrypt.hash('Austin', salt);
+        }
         await db.write();
+    } catch (error) {
+        console.error("FATAL: Could not initialize database.", error);
     }
 }
 initializeDatabase();
@@ -40,7 +44,6 @@ const activeRooms = {};
 app.get('/chat', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// User Auth Routes
 app.post('/signup', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -71,15 +74,45 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// New Route to get user's rooms
+app.post('/create-room', async (req, res) => {
+    try {
+        const { roomCode, username, password } = req.body;
+        if (!roomCode || !username || !password) return res.status(400).json({ message: "All fields are required." });
+        await db.read();
+        if (db.data.rooms[roomCode]) return res.status(409).json({ message: "Room code already exists." });
+        const salt = await bcrypt.genSalt(10);
+        db.data.rooms[roomCode] = { owner: username, passwordHash: await bcrypt.hash(password, salt), bannedUsers: [], messages: [] };
+        await db.write();
+        activeRooms[roomCode] = { users: {} };
+        res.status(201).json({ message: "Room created successfully." });
+    } catch (error) {
+        res.status(500).json({ message: "Server error creating room." });
+    }
+});
+
+app.post('/login-room', async (req, res) => {
+    try {
+        const { roomCode, username, password } = req.body;
+        await db.read();
+        const room = db.data.rooms[roomCode];
+        if (!room) return res.status(404).json({ message: "Room not found." });
+        if (room.bannedUsers.includes(username)) return res.status(403).json({ message: "You are banned from this room." });
+        const isMatch = await bcrypt.compare(password, room.passwordHash);
+        if (!isMatch) return res.status(401).json({ message: "Invalid password." });
+        if (!activeRooms[roomCode]) activeRooms[roomCode] = { users: {} };
+        res.status(200).json({ message: "Login successful.", isOwner: room.owner === username });
+    } catch (error) {
+        res.status(500).json({ message: "Server error joining room." });
+    }
+});
+
 app.get('/my-rooms/:username', async (req, res) => {
     try {
         const { username } = req.params;
         await db.read();
         const userRooms = Object.keys(db.data.rooms).filter(roomCode => {
             const room = db.data.rooms[roomCode];
-            // A user is part of a room if they are the owner or have sent a message
-            return room.owner === username || room.messages.some(m => m.username === username);
+            return room.owner === username || (room.messages && room.messages.some(m => m.username === username));
         });
         res.status(200).json(userRooms);
     } catch (error) {
@@ -87,24 +120,62 @@ app.get('/my-rooms/:username', async (req, res) => {
     }
 });
 
-// Admin Routes
-app.get('/admin/data', async (req, res) => {
-    try {
-        await db.read();
-        res.status(200).json({
-            rooms: db.data.rooms || {},
-            users: db.data.users || {}
-        });
-    } catch (error) {
-        res.status(500).json({ message: "Failed to retrieve admin data." });
-    }
+// --- Socket.IO Logic ---
+io.on('connection', (socket) => {
+    socket.on('join-request', async ({ roomCode, username }) => {
+        try {
+            socket.join(roomCode);
+            if (!activeRooms[roomCode]) activeRooms[roomCode] = { users: {} };
+            activeRooms[roomCode].users[socket.id] = username;
+            
+            await db.read();
+            const roomData = db.data.rooms[roomCode];
+            
+            socket.emit('join-successful', {
+                previousMessages: roomData.messages || [],
+                isOwner: roomData.owner === username
+            });
+            
+            const userList = Object.values(activeRooms[roomCode].users);
+            io.to(roomCode).emit('user-list-update', userList);
+        } catch (error) {
+            socket.emit('error', 'Failed to join room on server.');
+        }
+    });
+
+    socket.on('chat-message', async (data) => {
+        try {
+            const { roomCode, message } = data;
+            const room = activeRooms[roomCode];
+            if (room && room.users[socket.id]) {
+                const username = room.users[socket.id];
+                const messageData = {
+                    id: uuidv4(),
+                    username,
+                    message,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                await db.read();
+                db.data.rooms[roomCode].messages.push(messageData);
+                await db.write();
+                io.to(roomCode).emit('chat-message', messageData);
+            }
+        } catch(error) {
+            console.error("Chat message error:", error);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        for (const roomCode in activeRooms) {
+            if (activeRooms[roomCode].users[socket.id]) {
+                const username = activeRooms[roomCode].users[socket.id];
+                delete activeRooms[roomCode].users[socket.id];
+                const userList = Object.values(activeRooms[roomCode].users);
+                io.to(roomCode).emit('user-list-update', userList);
+                break;
+            }
+        }
+    });
 });
-
-// All other routes (create-room, login-room, other admin routes)
-// should also have try...catch blocks for robustness, but are omitted here for brevity.
-// ...
-
-// Socket.IO logic remains the same
-// ...
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
