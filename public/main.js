@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
-    let state = { username: null, currentRoom: null, isOwner: false };
+    let state = { username: null, currentRoom: null, isOwner: false, replyingTo: null, editingId: null };
 
     // --- Element Selectors ---
     const pages = { auth: document.getElementById('auth-page'), menu: document.getElementById('menu-page'), chat: document.getElementById('chat-page') };
@@ -32,6 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Chat Page
     const roomCodeDisplay = document.getElementById('room-code-display');
     const settingsBtn = document.getElementById('settings-btn');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const userList = document.getElementById('user-list');
+    const replyPreview = document.getElementById('reply-preview');
+    const editModal = document.getElementById('edit-modal');
+
 
     // --- Core Functions ---
     const showPage = (pageName) => {
@@ -63,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/my-rooms/${state.username}`);
             if (!res.ok) throw new Error('Failed to fetch rooms.');
             const rooms = await res.json();
-            myRoomsList.innerHTML = ''; // Clear previous list
+            myRoomsList.innerHTML = '';
             if (rooms.length > 0) {
                 noRoomsMessage.style.display = 'none';
                 rooms.forEach(roomCode => {
@@ -78,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 noRoomsMessage.style.display = 'block';
             }
         } catch (error) {
-            console.error("Could not fetch user's rooms:", error);
             noRoomsMessage.textContent = "Could not load your rooms.";
             noRoomsMessage.style.display = 'block';
         }
@@ -94,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleLogout = () => {
         localStorage.removeItem('chat-username');
-        state = { username: null, currentRoom: null, isOwner: false };
         window.location.reload();
     };
 
@@ -164,55 +169,94 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('join-request', { roomCode, username: state.username });
         } catch (error) {
             menuError.textContent = error.message;
-            alert(error.message); // Also alert for modal
+            alert(error.message);
         }
     };
 
+    const addMessageToUI = (data) => {
+        const { id, username, message, timestamp, replyTo, edited } = data;
+        const isOwnMessage = username === state.username;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `message-wrapper flex items-start gap-3 ${isOwnMessage ? 'flex-row-reverse ml-auto' : ''}`;
+        wrapper.id = `msg-wrapper-${id}`;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'user-avatar w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold';
+        avatar.textContent = username.charAt(0).toUpperCase();
+        avatar.style.backgroundColor = generateColor(username);
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message rounded-lg p-3 max-w-xs md:max-w-md ${isOwnMessage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`;
+        messageDiv.id = `msg-${id}`;
+        
+        messageDiv.innerHTML = `
+            <div class="message-info font-bold mb-1">${username}</div>
+            <div class="message-content text-sm">${marked.parse(message || '')}</div>
+            <div class="message-meta text-xs mt-2 opacity-70 text-right">${edited ? '(edited) ' : ''}${timestamp}</div>
+        `;
+
+        wrapper.appendChild(avatar);
+        wrapper.appendChild(messageDiv);
+        messagesContainer.appendChild(wrapper);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    };
+
+    const updateUserList = (users) => {
+        userList.innerHTML = '';
+        users.forEach(user => {
+            const li = document.createElement('li');
+            li.className = 'flex items-center gap-2 p-2 rounded-md hover:bg-gray-100';
+            li.innerHTML = `
+                <div class="user-avatar w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold" style="background-color: ${generateColor(user)}">${user.charAt(0).toUpperCase()}</div>
+                <span class="font-medium">${user}</span>
+            `;
+            userList.appendChild(li);
+        });
+    };
+
+    const generateColor = (str) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        let color = '#';
+        for (let i = 0; i < 3; i++) {
+            let value = (hash >> (i * 8)) & 0xFF;
+            color += ('00' + value.toString(16)).substr(-2);
+        }
+        return color;
+    };
 
     // --- Event Listeners ---
     logoutBtn.addEventListener('click', handleLogout);
-
     loginTab.addEventListener('click', () => {
         loginTab.classList.add('text-blue-600', 'border-blue-600');
-        loginTab.classList.remove('border-transparent');
         signupTab.classList.remove('text-blue-600', 'border-blue-600');
-        signupTab.classList.add('border-transparent');
         loginForm.classList.remove('hidden');
         signupForm.classList.add('hidden');
     });
-
     signupTab.addEventListener('click', () => {
         signupTab.classList.add('text-blue-600', 'border-blue-600');
-        signupTab.classList.remove('border-transparent');
         loginTab.classList.remove('text-blue-600', 'border-blue-600');
-        loginTab.classList.add('border-transparent');
         signupForm.classList.remove('hidden');
         loginForm.classList.add('hidden');
     });
-
     createTab.addEventListener('click', () => {
         createTab.classList.add('text-blue-600', 'border-blue-600');
-        createTab.classList.remove('border-transparent');
         joinTab.classList.remove('text-blue-600', 'border-blue-600');
-        joinTab.classList.add('border-transparent');
         createRoomForm.classList.remove('hidden');
         joinRoomForm.classList.add('hidden');
     });
-
     joinTab.addEventListener('click', () => {
         joinTab.classList.add('text-blue-600', 'border-blue-600');
-        joinTab.classList.remove('border-transparent');
         createTab.classList.remove('text-blue-600', 'border-blue-600');
-        createTab.classList.add('border-transparent');
         joinRoomForm.classList.remove('hidden');
         createRoomForm.classList.add('hidden');
     });
-
     loginForm.addEventListener('submit', (e) => handleAuth(e, '/login'));
     signupForm.addEventListener('submit', (e) => handleAuth(e, '/signup'));
     createRoomForm.addEventListener('submit', handleCreateRoom);
-    // Join form is handled by the modal now
-
     myRoomsList.addEventListener('click', (e) => {
         if (e.target.dataset.roomcode) {
             const roomCode = e.target.dataset.roomcode;
@@ -221,13 +265,11 @@ document.addEventListener('DOMContentLoaded', () => {
             joinRoomModal.classList.add('flex');
         }
     });
-    
     modalCancelBtn.addEventListener('click', () => {
         joinRoomModal.classList.add('hidden');
         joinRoomModal.classList.remove('flex');
         modalJoinForm.reset();
     });
-
     modalJoinForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const roomCode = modalRoomCode.textContent;
@@ -248,14 +290,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.isOwner) {
             settingsBtn.style.display = 'block';
         }
-        // Initialize chat UI, clear old messages, etc.
-        document.getElementById('messages').innerHTML = '';
-        data.previousMessages.forEach(msg => { /* function to add message to UI */ });
+        messagesContainer.innerHTML = '';
+        data.previousMessages.forEach(addMessageToUI);
     });
 
     socket.on('user-list-update', (users) => {
-        // function to update the user list UI
+        updateUserList(users);
     });
     
-    // All other socket handlers for chat functionality would be here
+    socket.on('chat-message', (data) => {
+        addMessageToUI(data);
+    });
 });
