@@ -6,6 +6,7 @@
     <title>Chat Space</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
@@ -32,7 +33,10 @@
         <!-- Chat Page -->
         <div id="chat-page" class="page">
             <div id="sidebar">
-                <h3>Online Users</h3>
+                <div class="sidebar-header">
+                    <h3>Online Users</h3>
+                    <button id="settings-btn" class="icon-btn" style="display: none;"><i class="ri-settings-3-line"></i></button>
+                </div>
                 <ul id="user-list"></ul>
                 <div id="room-info">
                     <p>Room Code:</p>
@@ -44,21 +48,41 @@
                 <div id="chat-window">
                     <div id="messages"></div>
                 </div>
+                <div id="reply-preview" style="display: none;">
+                    <p>Replying to <strong id="reply-username"></strong></p>
+                    <button id="cancel-reply-btn"><i class="ri-close-line"></i></button>
+                </div>
                 <div id="typing-indicator"></div>
                 <div id="chat-input-container">
-                    <button id="emoji-btn" class="input-action-btn"><i class="ri-emotion-happy-line"></i></button>
-                    <label for="image-upload" class="input-action-btn">
-                        <i class="ri-image-add-line"></i>
-                        <input type="file" id="image-upload" accept="image/*" style="display: none;">
-                    </label>
                     <input type="text" id="message-input" placeholder="Type a message...">
                     <button id="send-btn" class="input-action-btn"><i class="ri-send-plane-2-fill"></i></button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close-btn"><i class="ri-close-line"></i></button>
+            <h2>Settings</h2>
+            <div id="owner-settings" class="settings-section">
+                <h4>Room Moderation</h4>
+                <button id="clear-chat-btn" class="danger-btn">Clear Chat History</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Message Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <h2>Edit Message</h2>
+            <textarea id="edit-textarea"></textarea>
+            <button id="save-edit-btn">Save</button>
+            <button id="cancel-edit-btn">Cancel</button>
+        </div>
+    </div>
     
-    <audio id="notification-sound" src="notification.mp3" preload="auto"></audio>
     <script src="main.js"></script>
 </body>
 </html>
