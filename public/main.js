@@ -41,8 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const showPage = (pageName) => {
         Object.values(pages).forEach(p => {
             p.classList.remove('active');
+            p.classList.add('hidden');
         });
         pages[pageName].classList.add('active');
+        pages[pageName].classList.remove('hidden');
     };
 
     const checkStoredUser = async () => {
@@ -241,7 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setActiveTab = (activeTab, inactiveTab, activeForm, inactiveForm) => {
         activeTab.classList.add('text-blue-600', 'border-blue-600');
+        activeTab.classList.remove('border-transparent');
         inactiveTab.classList.remove('text-blue-600', 'border-blue-600');
+        inactiveTab.classList.add('border-transparent');
         activeForm.classList.remove('hidden');
         inactiveForm.classList.add('hidden');
     };
@@ -295,7 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
             settingsBtn.style.display = 'block';
         }
         messagesContainer.innerHTML = '';
-        data.previousMessages.forEach(addMessageToUI);
+        if (data.previousMessages) {
+            data.previousMessages.forEach(addMessageToUI);
+        }
     });
 
     socket.on('user-list-update', (users) => {
