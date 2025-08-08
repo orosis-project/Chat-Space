@@ -40,14 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Functions ---
     const showPage = (pageName) => {
         Object.values(pages).forEach(p => {
-            p.classList.add('hidden');
-            p.classList.remove('flex');
+            p.classList.remove('active');
         });
-        pages[pageName].classList.remove('hidden');
-        pages[pageName].classList.add('flex');
-        if (pageName === 'auth' || pageName === 'menu') {
-            pages[pageName].classList.add('items-center', 'justify-center');
-        }
+        pages[pageName].classList.add('active');
     };
 
     const checkStoredUser = async () => {
@@ -58,6 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
             await fetchMyRooms();
             showPage('menu');
         } else {
+            // Default to login tab on initial load
+            setActiveTab(loginTab, signupTab, loginForm, signupForm);
             showPage('auth');
         }
     };
@@ -244,9 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setActiveTab = (activeTab, inactiveTab, activeForm, inactiveForm) => {
         activeTab.classList.add('text-blue-600', 'border-blue-600');
-        activeTab.classList.remove('border-transparent');
         inactiveTab.classList.remove('text-blue-600', 'border-blue-600');
-        inactiveTab.classList.add('border-transparent');
         activeForm.classList.remove('hidden');
         inactiveForm.classList.add('hidden');
     };
