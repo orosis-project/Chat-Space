@@ -18,18 +18,23 @@ body {
     border-radius: 8px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    position: relative; /* Needed for positioning pages */
 }
 
 .page {
-    display: none;
-    flex-direction: column;
+    position: absolute; /* Position pages on top of each other */
+    width: 100%;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    opacity: 0; /* Start with pages invisible */
+    visibility: hidden; /* Hide from screen readers and interactions */
+    transition: opacity 0.5s ease-in-out, visibility 0.5s; /* Smooth fade transition */
 }
 
 .page.active {
-    display: flex;
+    opacity: 1; /* Make the active page visible */
+    visibility: visible;
 }
 
 /* Join Page Styles */
