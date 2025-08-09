@@ -8,6 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
         login: document.getElementById('login-page'),
         chat: document.getElementById('chat-page'),
     };
+    const settingsModal = document.getElementById('settings-modal');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const typingIndicatorToggle = document.getElementById('typing-indicator-toggle');
+    const imageUpload = document.getElementById('image-upload');
+    const giphyBtn = document.getElementById('giphy-btn');
     const joinCodeForm = document.getElementById('join-code-form');
     const loginForm = document.getElementById('login-form');
     const joinError = document.getElementById('join-error');
@@ -15,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Core Functions ---
     const showPage = (pageName) => {
-        // This function correctly switches between pages
         Object.values(pages).forEach(p => {
             p.classList.remove('active');
             p.classList.add('hidden');
@@ -29,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
         joinError.textContent = '';
         const code = document.getElementById('join-code-input').value;
         try {
-            // This assumes a server endpoint '/join' exists
             const response = await fetch('/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -49,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
         try {
-            // This assumes a server endpoint '/login' exists
             const response = await fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -61,9 +63,20 @@ document.addEventListener('DOMContentLoaded', () => {
             state.username = data.username;
             state.role = data.role;
             socket.emit('user-connect', { username: state.username, role: state.role });
-            showPage('chat');
         } catch (error) {
             loginError.textContent = error.message;
+        }
+    };
+    
+    const renderChatUI = () => {
+        showPage('chat');
+    };
+
+    const applyTheme = (isDark) => {
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
     };
 
@@ -71,18 +84,41 @@ document.addEventListener('DOMContentLoaded', () => {
     joinCodeForm.addEventListener('submit', handleJoinCode);
     loginForm.addEventListener('submit', handleLogin);
 
+    document.getElementById('settings-btn').addEventListener('click', () => {
+        settingsModal.classList.remove('hidden');
+        settingsModal.classList.add('flex');
+    });
+    document.getElementById('close-settings-btn').addEventListener('click', () => {
+        settingsModal.classList.add('hidden');
+        settingsModal.classList.remove('flex');
+    });
+    darkModeToggle.addEventListener('change', (e) => {
+        applyTheme(e.target.checked);
+        localStorage.setItem('darkMode', e.target.checked);
+    });
+
     // --- Socket Handlers ---
-    socket.on('connect', () => {
-        console.log('Connected to server');
+    socket.on('join-successful', ({ messages, settings }) => {
+        renderChatUI();
+        document.getElementById('approval-toggle').checked = settings.approvalRequired;
+        if (state.role === 'Owner') {
+            document.getElementById('owner-settings').style.display = 'block';
+        }
+    });
+
+    socket.on('waiting-for-approval', () => {
+        const chatPage = document.getElementById('chat-page');
+        chatPage.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center text-center p-8"><h2 class="text-2xl font-bold">Waiting for Approval</h2><p class="text-gray-600 mt-2">An admin or moderator has been notified of your request to join.</p></div>`;
+        showPage('chat');
     });
 
     socket.on('error', (message) => {
         alert(`Server Error: ${message}`);
     });
-    
-    // In a full app, more socket handlers for messages, user lists etc. would go here
 
     // --- Initial Load ---
-    // This ensures the first page is always shown correctly.
+    const savedTheme = localStorage.getItem('darkMode') === 'true';
+    darkModeToggle.checked = savedTheme;
+    applyTheme(savedTheme);
     showPage('joinCode');
 });
