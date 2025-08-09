@@ -9,9 +9,8 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* CRITICAL FIX: Removed !important which was causing the blank screen */
-        .page { display: none; }
-        .page.active { display: flex; }
+        .page { display: none !important; }
+        .page.active { display: flex !important; }
         #chat-window::-webkit-scrollbar { width: 8px; }
         #chat-window::-webkit-scrollbar-track { background: transparent; }
         #chat-window::-webkit-scrollbar-thumb {
@@ -46,7 +45,13 @@
                     <p class="text-gray-500 mt-2">Create an account or sign in.</p>
                 </div>
                 <div id="login-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
-                <form id="login-form" class="space-y-6">
+                
+                <div class="flex border-b-2 border-gray-200 mb-6">
+                    <button id="login-tab" class="w-1/2 pb-3 text-center font-semibold text-gray-500 cursor-pointer transition-colors duration-300 border-b-4 border-transparent">Login</button>
+                    <button id="signup-tab" class="w-1/2 pb-3 text-center font-semibold text-gray-500 cursor-pointer transition-colors duration-300 border-b-4 border-transparent">Signup</button>
+                </div>
+
+                <form id="login-form" class="hidden space-y-6">
                     <div class="relative">
                         <i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                         <input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
@@ -55,94 +60,28 @@
                         <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                         <input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Login / Signup</button>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Login</button>
+                </form>
+
+                <form id="signup-form" class="hidden space-y-6">
+                     <div class="relative">
+                        <i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="signup-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div class="relative">
+                        <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="password" id="signup-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Create Account</button>
                 </form>
             </div>
         </div>
 
         <!-- Chat Page -->
         <div id="chat-page" class="page hidden h-full">
-            <!-- Sidebar for Channels and DMs -->
-            <div id="navigation-sidebar" class="w-72 bg-gray-200 dark:bg-gray-800 p-4 flex flex-col">
-                <h2 class="text-xl font-bold mb-4 dark:text-white">Channels</h2>
-                <ul id="channel-list" class="space-y-2 mb-6">
-                    <!-- Channels will be injected here -->
-                </ul>
-                <h2 class="text-xl font-bold mb-4 dark:text-white">Direct Messages</h2>
-                <ul id="dm-list" class="space-y-2">
-                    <!-- DMs will be injected here -->
-                </ul>
-                <div class="mt-auto">
-                    <button id="settings-btn" class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition">
-                        <i class="ri-settings-3-line"></i>
-                        <span class="font-semibold dark:text-white">Settings</span>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Main Chat Area -->
-            <div id="main-chat-area" class="flex-grow flex flex-col">
-                <div id="chat-window" class="flex-grow p-6 overflow-y-auto">
-                    <div id="messages" class="space-y-6"></div>
-                </div>
-                <div id="chat-input-container" class="p-4 bg-white dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex items-center gap-4">
-                    <label for="image-upload" class="cursor-pointer text-gray-500 hover:text-blue-500">
-                        <i class="ri-image-add-line text-2xl"></i>
-                        <input type="file" id="image-upload" class="hidden" accept="image/*">
-                    </label>
-                    <button id="giphy-btn" class="text-gray-500 hover:text-blue-500">
-                        <i class="ri-gif-line text-2xl"></i>
-                    </button>
-                    <input type="text" id="message-input" placeholder="Type a message..." class="w-full px-4 py-3 bg-gray-100 dark:bg-gray-800 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-900 transition flex-grow">
-                    <button id="send-btn" class="bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">
-                        <i class="ri-send-plane-2-fill text-xl"></i>
-                    </button>
-                </div>
-            </div>
+            <!-- Chat UI will be populated here -->
+        </div>
 
-            <!-- User List Sidebar -->
-            <div id="user-list-sidebar" class="w-64 bg-white dark:bg-gray-700 p-4 border-l border-gray-200 dark:border-gray-600">
-                <h3 class="text-lg font-bold mb-4 dark:text-white">Online Users</h3>
-                <ul id="user-list" class="space-y-3">
-                    <!-- User list will be injected here -->
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center">
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-lg">
-            <h2 class="text-2xl font-bold mb-6 dark:text-white">Settings</h2>
-            <!-- Personal Settings -->
-            <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                    <label for="dark-mode-toggle" class="font-semibold dark:text-gray-300">Dark Mode</label>
-                    <input type="checkbox" id="dark-mode-toggle" class="switch">
-                </div>
-                <div class="flex items-center justify-between">
-                    <label for="sound-toggle" class="font-semibold dark:text-gray-300">Sound Alerts</label>
-                    <input type="checkbox" id="sound-toggle" class="switch" checked>
-                </div>
-                 <div class="flex items-center justify-between">
-                    <label for="typing-indicator-toggle" class="font-semibold dark:text-gray-300">Show Typing Indicator</label>
-                    <input type="checkbox" id="typing-indicator-toggle" class="switch" checked>
-                </div>
-            </div>
-            <!-- Owner Settings -->
-            <div id="owner-settings" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700" style="display: none;">
-                <h3 class="text-xl font-bold mb-4 dark:text-white">Owner Controls</h3>
-                <div class="flex items-center justify-between">
-                    <label for="approval-toggle" class="font-semibold dark:text-gray-300">Require Member Approval</label>
-                    <input type="checkbox" id="approval-toggle" class="switch">
-                </div>
-                <div class="flex items-center justify-between mt-4">
-                    <label for="giphy-toggle" class="font-semibold dark:text-gray-300">Enable Giphy</label>
-                    <input type="checkbox" id="giphy-toggle" class="switch" checked>
-                </div>
-            </div>
-             <button id="close-settings-btn" class="w-full mt-8 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">Close</button>
-        </div>
     </div>
 
     <script src="main.js"></script>
