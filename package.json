@@ -1,7 +1,7 @@
 {
-  "name": "chat-space-final-v5",
+  "name": "chat-space-final-v8",
   "version": "1.0.0",
-  "description": "A real-time chat application with roles and moderation",
+  "description": "A real-time chat application with channels, roles, and advanced moderation",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +10,7 @@
     "bcrypt": "^5.1.1",
     "express": "^4.19.2",
     "lowdb": "^7.0.1",
+    "node-cron": "^3.0.3",
     "socket.io": "^4.7.5",
     "uuid": "^9.0.1"
   },
