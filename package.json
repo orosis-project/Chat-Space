@@ -1,7 +1,7 @@
 {
-  "name": "chat-space-final",
+  "name": "chat-space-final-v5",
   "version": "1.0.0",
-  "description": "A real-time chat application with admin features",
+  "description": "A real-time chat application with roles and moderation",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
