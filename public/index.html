@@ -24,129 +24,47 @@
 
     <div id="app-container" class="w-full h-screen">
 
-        <!-- Auth Page -->
-        <div id="auth-page" class="page flex-col items-center justify-center p-4 bg-gray-50">
-             <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg relative">
-                <a href="/admin" class="absolute top-4 right-4 text-sm font-medium text-gray-500 hover:text-blue-600 transition">Admin Access</a>
-                <div class="text-center mb-8">
-                    <h1 class="text-4xl font-bold text-gray-800">Chat Space</h1>
-                    <p class="text-gray-500 mt-2">Sign in or create an account to continue</p>
-                </div>
-                <div id="auth-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
-                
-                <div class="flex border-b-2 border-gray-200 mb-6">
-                    <button id="login-tab" class="w-1/2 pb-3 text-center font-semibold text-gray-500 cursor-pointer transition-colors duration-300 border-b-4 border-transparent">Login</button>
-                    <button id="signup-tab" class="w-1/2 pb-3 text-center font-semibold text-gray-500 cursor-pointer transition-colors duration-300 border-b-4 border-transparent">Signup</button>
-                </div>
-                
-                <form id="login-form" class="hidden space-y-6">
-                    <div class="relative">
-                        <i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                        <input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" required>
-                    </div>
-                    <div class="relative">
-                        <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                        <input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" required>
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md hover:shadow-lg">Login</button>
-                </form>
-                
-                <form id="signup-form" class="hidden space-y-6">
-                     <div class="relative">
-                        <i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                        <input type="text" id="signup-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" required>
-                    </div>
-                    <div class="relative">
-                        <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                        <input type="password" id="signup-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" required>
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md hover:shadow-lg">Create Account</button>
+        <!-- Join Code Page -->
+        <div id="join-code-page" class="page active flex-col items-center justify-center p-4 bg-gray-50">
+            <div class="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg text-center">
+                <h1 class="text-4xl font-bold text-gray-800 mb-4">Chat Space</h1>
+                <p class="text-gray-500 mb-6">Enter the join code to continue.</p>
+                <div id="join-error" class="text-red-500 mb-4 h-5 font-semibold"></div>
+                <form id="join-code-form" class="space-y-4">
+                    <input type="text" id="join-code-input" placeholder="Join Code" class="w-full text-center tracking-widest font-bold text-lg px-4 py-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Enter</button>
                 </form>
             </div>
         </div>
 
-        <!-- Main Menu Page -->
-        <div id="menu-page" class="page hidden flex-col items-center justify-center p-4 bg-gray-50">
-            <div class="w-full max-w-4xl mx-auto">
-                <div class="text-center mb-10 relative">
-                    <h1 class="text-4xl font-bold text-gray-800">Welcome, <span id="welcome-username"></span>!</h1>
-                    <p class="text-gray-500 mt-2">Create a new room or join one of yours below.</p>
-                    <button id="logout-btn" class="absolute top-0 right-0 bg-red-500 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition">Logout</button>
+        <!-- Login Page -->
+        <div id="login-page" class="page hidden flex-col items-center justify-center p-4 bg-gray-50">
+            <div class="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-800">Login or Signup</h1>
+                    <p class="text-gray-500 mt-2">Create an account or sign in.</p>
                 </div>
-                <div id="menu-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
-                
-                <div class="grid md:grid-cols-2 gap-10">
-                    <!-- Create Room Column -->
-                    <div class="bg-white p-8 rounded-xl shadow-lg">
-                        <h2 class="text-2xl font-semibold mb-6 text-center text-gray-700">Create a New Room</h2>
-                        <form id="create-room-form" class="space-y-6">
-                            <div class="relative">
-                                <i class="ri-keyboard-box-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                                <input type="text" id="create-room-code" placeholder="New Room Code" class="w-full px-4 py-3 pl-12 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" required>
-                            </div>
-                            <div class="relative">
-                                 <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                                <input type="password" id="create-room-password" placeholder="Room Password" class="w-full px-4 py-3 pl-12 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" required>
-                            </div>
-                            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md hover:shadow-lg">Create & Join</button>
-                        </form>
+                <div id="login-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
+                <form id="login-form" class="space-y-6">
+                    <div class="relative">
+                        <i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                    <!-- Your Chats Column -->
-                    <div class="bg-white p-8 rounded-xl shadow-lg">
-                        <h2 class="text-2xl font-semibold mb-6 text-center text-gray-700">Your Chats</h2>
-                        <div id="my-rooms-list" class="space-y-3 max-h-64 overflow-y-auto">
-                            <p id="no-rooms-message" class="text-gray-500 text-center">You haven't joined any rooms yet.</p>
-                        </div>
+                    <div class="relative">
+                        <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Login / Signup</button>
+                </form>
             </div>
         </div>
 
         <!-- Chat Page -->
         <div id="chat-page" class="page hidden h-full">
-            <div id="sidebar" class="w-64 bg-white p-4 flex flex-col border-r border-gray-200">
-                <div class="flex justify-between items-center mb-4 border-b pb-2 border-gray-200">
-                    <h3 class="text-lg font-bold text-gray-800">Online Users</h3>
-                    <button id="settings-btn" class="text-gray-500 hover:text-blue-600 transition" style="display: none;"><i class="ri-settings-3-line"></i></button>
-                </div>
-                <ul id="user-list" class="flex-grow overflow-y-auto"></ul>
-                <div class="mt-auto pt-4 border-t border-gray-200">
-                    <p class="text-sm text-gray-600">Room Code:</p>
-                    <strong id="room-code-display" class="text-blue-600 font-mono"></strong>
-                </div>
-                 <button id="leave-room-btn" class="w-full mt-2 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition">Leave Room</button>
-            </div>
-            <div id="main-chat" class="flex-grow flex flex-col bg-gray-100">
-                <div id="chat-window" class="flex-grow p-6 overflow-y-auto">
-                    <div id="messages" class="space-y-6"></div>
-                </div>
-                <div id="reply-preview" class="p-2 bg-gray-200 border-t border-gray-300 text-sm flex justify-between items-center" style="display: none;">
-                    <p>Replying to <strong id="reply-username"></strong></p>
-                    <button id="cancel-reply-btn" class="hover:text-red-500"><i class="ri-close-line"></i></button>
-                </div>
-                <div id="typing-indicator" class="px-6 pb-1 text-sm text-gray-500 h-5 italic"></div>
-                <div id="chat-input-container" class="p-4 bg-white border-t border-gray-200 flex items-center gap-4">
-                    <input type="text" id="message-input" placeholder="Type a message..." class="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition flex-grow">
-                    <button id="send-btn" class="bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 shadow-md hover:shadow-lg flex-shrink-0 !w-auto px-5"><i class="ri-send-plane-2-fill text-xl"></i></button>
-                </div>
-            </div>
+            <!-- Chat UI will be populated here -->
         </div>
-    </div>
-    
-    <!-- Join Room Modal -->
-    <div id="join-room-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
-        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm">
-            <h2 class="text-2xl font-semibold mb-4">Join Room: <span id="modal-room-code" class="font-mono"></span></h2>
-            <form id="modal-join-form" class="space-y-4">
-                <input type="password" id="modal-room-password" placeholder="Room Password" class="w-full px-4 py-3 bg-gray-100 border-2 border-transparent rounded-lg" required>
-                <div class="flex gap-4">
-                    <button type="button" id="modal-cancel-btn" class="w-full bg-gray-300 text-gray-800 font-bold py-3 rounded-lg hover:bg-gray-400 transition">Cancel</button>
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">Join</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
+    </div>
 
     <script src="main.js"></script>
 </body>
