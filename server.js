@@ -12,7 +12,7 @@ const { JSONFile } = require('lowdb/node');
 // --- Database Setup ---
 const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
-const db = new Low(adapter, { users: {}, rooms: {}, adminPasswordHash: '' });
+const db = new Low(adapter, { users: {}, mainChat: {} });
 
 // --- Express & Socket.IO Setup ---
 const app = express();
@@ -23,24 +23,48 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-const activeRooms = {};
+const MAIN_CHAT_CODE = "HMS";
+const activeUsers = {}; // { socketId: { username, role } }
+const pendingUsers = {}; // { socketId: username }
 
-// --- Routes ---
-app.get('/chat', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
-
-app.post('/signup', async (req, res) => {
+// --- Initial Server Setup ---
+async function initializeServer() {
     try {
         await db.read();
-        const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ message: "Username and password are required." });
-        if (db.data.users[username]) return res.status(409).json({ message: "User already exists." });
-        const salt = await bcrypt.genSalt(10);
-        db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt), disabled: false };
+        db.data = db.data || { users: {}, mainChat: {} };
+        
+        // Ensure the main chat room exists
+        if (!db.data.mainChat.messages) {
+            db.data.mainChat = {
+                messages: [],
+                settings: { approvalRequired: false },
+                roles: {}
+            };
+        }
+
+        // Ensure the owner account exists
+        const ownerUsername = "Austin ;)";
+        if (!db.data.users[ownerUsername]) {
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash("AME", salt);
+            db.data.users[ownerUsername] = { passwordHash };
+            db.data.mainChat.roles[ownerUsername] = 'Owner';
+        }
+        
         await db.write();
-        res.status(201).json({ message: "User created successfully." });
+        server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
     } catch (error) {
-        res.status(500).json({ message: "Server error during signup." });
+        console.error("FATAL: Could not start server.", error);
+        process.exit(1);
+    }
+}
+
+// --- Routes ---
+app.post('/join', (req, res) => {
+    if (req.body.code === MAIN_CHAT_CODE) {
+        res.status(200).json({ message: "Access granted." });
+    } else {
+        res.status(401).json({ message: "Invalid Join Code." });
     }
 });
 
@@ -49,139 +73,80 @@ app.post('/login', async (req, res) => {
         await db.read();
         const { username, password } = req.body;
         const user = db.data.users[username];
-        if (!user) return res.status(404).json({ message: "User not found." });
-        if (user.disabled) return res.status(403).json({ message: "This account has been disabled." });
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
-        res.status(200).json({ message: "Login successful." });
+
+        if (user) { // Login existing user
+            const isMatch = await bcrypt.compare(password, user.passwordHash);
+            if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
+        } else { // Create new user
+            const salt = await bcrypt.genSalt(10);
+            db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt) };
+            db.data.mainChat.roles[username] = 'Member'; // Auto-assign member role
+            await db.write();
+        }
+        
+        const role = db.data.mainChat.roles[username] || 'Member';
+        res.status(200).json({ message: "Login successful.", username, role });
+
     } catch (error) {
         res.status(500).json({ message: "Server error during login." });
     }
 });
 
-app.post('/create-room', async (req, res) => {
-    try {
-        await db.read();
-        const { roomCode, username, password } = req.body;
-        if (!roomCode || !username || !password) return res.status(400).json({ message: "All fields are required." });
-        if (db.data.rooms[roomCode]) return res.status(409).json({ message: "Room code already exists." });
-        const salt = await bcrypt.genSalt(10);
-        db.data.rooms[roomCode] = { owner: username, passwordHash: await bcrypt.hash(password, salt), bannedUsers: [], messages: [] };
-        await db.write();
-        activeRooms[roomCode] = { users: {} };
-        res.status(201).json({ message: "Room created successfully." });
-    } catch (error) {
-        res.status(500).json({ message: "Server error creating room." });
-    }
-});
-
-app.post('/login-room', async (req, res) => {
-    try {
-        await db.read();
-        const { roomCode, username, password } = req.body;
-        const room = db.data.rooms[roomCode];
-        if (!room) return res.status(404).json({ message: "Room not found." });
-        if (room.bannedUsers && room.bannedUsers.includes(username)) return res.status(403).json({ message: "You are banned from this room." });
-        const isMatch = await bcrypt.compare(password, room.passwordHash);
-        if (!isMatch) return res.status(401).json({ message: "Invalid password." });
-        if (!activeRooms[roomCode]) activeRooms[roomCode] = { users: {} };
-        res.status(200).json({ message: "Login successful.", isOwner: room.owner === username });
-    } catch (error) {
-        res.status(500).json({ message: "Server error joining room." });
-    }
-});
-
-app.get('/my-rooms/:username', async (req, res) => {
-    try {
-        await db.read();
-        const { username } = req.params;
-        const userRooms = Object.keys(db.data.rooms).filter(roomCode => {
-            const room = db.data.rooms[roomCode];
-            return room.owner === username || (room.messages && room.messages.some(m => m.username === username));
-        });
-        res.status(200).json(userRooms);
-    } catch (error) {
-        res.status(500).json({ message: "Server error fetching user rooms." });
-    }
-});
-
 // --- Socket.IO Logic ---
 io.on('connection', (socket) => {
-    socket.on('join-request', async ({ roomCode, username }) => {
+    socket.on('user-connect', async ({ username, role }) => {
         try {
-            socket.join(roomCode);
-            if (!activeRooms[roomCode]) activeRooms[roomCode] = { users: {} };
-            activeRooms[roomCode].users[socket.id] = username;
-            
             await db.read();
-            const roomData = db.data.rooms[roomCode];
-            
-            socket.emit('join-successful', {
-                previousMessages: roomData.messages || [],
-                isOwner: roomData.owner === username
-            });
-            
-            const userList = Object.values(activeRooms[roomCode].users);
-            io.to(roomCode).emit('user-list-update', userList);
+            const settings = db.data.mainChat.settings;
+            activeUsers[socket.id] = { username, role };
+
+            if (role === 'Owner' || role === 'Moderator' || !settings.approvalRequired) {
+                socket.join(MAIN_CHAT_CODE);
+                socket.emit('join-successful', { messages: db.data.mainChat.messages, settings });
+                io.to(MAIN_CHAT_CODE).emit('user-list-update', getUsersWithRoles());
+            } else {
+                pendingUsers[socket.id] = username;
+                socket.emit('waiting-for-approval');
+                // Notify admins/mods
+                getAdminSockets().forEach(adminSocket => {
+                    adminSocket.emit('user-waiting-approval', getPendingUsers());
+                });
+            }
         } catch (error) {
-            socket.emit('error', 'Failed to join room on server.');
+            socket.emit('error', 'Server error on connection.');
         }
     });
-
-    socket.on('chat-message', async (data) => {
-        try {
-            const { roomCode, message } = data;
-            const room = activeRooms[roomCode];
-            if (room && room.users[socket.id]) {
-                const username = room.users[socket.id];
-                const messageData = {
-                    id: uuidv4(),
-                    username,
-                    message,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                };
-                await db.read();
-                if (!db.data.rooms[roomCode].messages) {
-                    db.data.rooms[roomCode].messages = [];
-                }
-                db.data.rooms[roomCode].messages.push(messageData);
-                await db.write();
-                io.to(roomCode).emit('chat-message', messageData);
-            }
-        } catch(error) {
-            console.error("Chat message error:", error);
-        }
-    });
-
+    
+    // ... Add other socket handlers for chat, moderation, etc.
+    
     socket.on('disconnect', () => {
-        for (const roomCode in activeRooms) {
-            if (activeRooms[roomCode].users[socket.id]) {
-                const username = activeRooms[roomCode].users[socket.id];
-                delete activeRooms[roomCode].users[socket.id];
-                const userList = Object.values(activeRooms[roomCode].users);
-                io.to(roomCode).emit('user-list-update', userList);
-                break;
-            }
-        }
+        delete activeUsers[socket.id];
+        delete pendingUsers[socket.id];
+        io.to(MAIN_CHAT_CODE).emit('user-list-update', getUsersWithRoles());
+        getAdminSockets().forEach(adminSocket => {
+            adminSocket.emit('user-waiting-approval', getPendingUsers());
+        });
     });
 });
 
-// --- Server Startup ---
-async function startServer() {
-    try {
-        await db.read();
-        db.data = db.data || { users: {}, rooms: {}, adminPasswordHash: '' };
-        if (!db.data.adminPasswordHash) {
-            const salt = await bcrypt.genSalt(10);
-            db.data.adminPasswordHash = await bcrypt.hash('Austin', salt);
-        }
-        await db.write();
-        
-        server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
-    } catch (error) {
-        console.error("FATAL: Could not start server.", error);
-        process.exit(1);
-    }
+// --- Helper Functions ---
+function getUsersWithRoles() {
+    const userRoles = {};
+    Object.values(activeUsers).forEach(user => {
+        userRoles[user.username] = user.role;
+    });
+    return userRoles;
 }
 
-startServer();
+function getPendingUsers() {
+    return Object.entries(pendingUsers).map(([socketId, username]) => ({ socketId, username }));
+}
+
+function getAdminSockets() {
+    return Object.entries(activeUsers)
+        .filter(([_, user]) => user.role === 'Owner' || user.role === 'Moderator')
+        .map(([socketId, _]) => io.sockets.sockets.get(socketId))
+        .filter(Boolean);
+}
+
+initializeServer();
