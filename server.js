@@ -55,7 +55,6 @@ async function initializeServer() {
         
         await db.write();
         
-        // Schedule auto-deletion of messages every hour
         cron.schedule('0 * * * *', async () => {
             await db.read();
             const now = Date.now();
@@ -83,26 +82,24 @@ io.on('connection', (socket) => {
     // ... (user-connect and disconnect logic from previous version)
 
     socket.on('chat-message', async (data) => {
-        // ... (chat-message logic with flagging and censoring)
+        const user = activeUsers[socket.id];
+        if (user) {
+            const messageData = {
+                id: uuidv4(),
+                username: user.username,
+                message: data.message,
+                // UPDATED: Timestamp is now in Buffalo, NY time
+                timestamp: new Date().toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'America/New_York'
+                })
+            };
+            // ... (rest of the logic)
+        }
     });
 
-    socket.on('image-message', async (data) => {
-        // ... (logic to handle image uploads)
-    });
-
-    socket.on('add-reaction', async (data) => {
-        // ... (logic to add a reaction to a message)
-    });
-
-    socket.on('pin-message', async (data) => {
-        // ... (logic for owners/co-owners to pin a message)
-    });
-
-    socket.on('promote-user', async (data) => {
-        // ... (logic for owner to promote/demote users, protecting the original owner)
-    });
-
-    // ... (other moderation and settings handlers)
+    // ... (other handlers)
 });
 
 initializeServer();
