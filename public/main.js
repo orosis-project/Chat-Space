@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
-    let state = { username: null, role: null, currentChannel: 'general', activeDM: null };
+    let state = { username: null, role: null };
 
     // --- Element Selectors ---
     const pages = {
@@ -8,15 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
         login: document.getElementById('login-page'),
         chat: document.getElementById('chat-page'),
     };
-    const settingsModal = document.getElementById('settings-modal');
-    const darkModeToggle = document.getElementById('dark-mode-toggle');
-    const typingIndicatorToggle = document.getElementById('typing-indicator-toggle');
-    const imageUpload = document.getElementById('image-upload');
-    const giphyBtn = document.getElementById('giphy-btn');
     const joinCodeForm = document.getElementById('join-code-form');
     const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
     const joinError = document.getElementById('join-error');
     const loginError = document.getElementById('login-error');
+    const loginTab = document.getElementById('login-tab');
+    const signupTab = document.getElementById('signup-tab');
 
     // --- Core Functions ---
     const showPage = (pageName) => {
@@ -26,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         pages[pageName].classList.add('active');
         pages[pageName].classList.remove('hidden');
+    };
+
+    const setActiveTab = (activeTab, inactiveTab, activeForm, inactiveForm) => {
+        activeTab.classList.add('text-blue-600', 'border-blue-600');
+        activeTab.classList.remove('border-transparent');
+        inactiveTab.classList.remove('text-blue-600', 'border-blue-600');
+        inactiveTab.classList.add('border-transparent');
+        activeForm.classList.remove('hidden');
+        inactiveForm.classList.add('hidden');
     };
 
     const handleJoinCode = async (e) => {
@@ -46,13 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const handleLogin = async (e) => {
+    const handleAuth = async (e, endpoint) => {
         e.preventDefault();
         loginError.textContent = '';
-        const username = document.getElementById('login-username').value;
-        const password = document.getElementById('login-password').value;
+        const form = e.target;
+        const username = form.querySelector('input[type="text"]').value;
+        const password = form.querySelector('input[type="password"]').value;
         try {
-            const response = await fetch('/login', {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -60,50 +68,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message);
             
-            state.username = data.username;
-            state.role = data.role;
-            socket.emit('user-connect', { username: state.username, role: state.role });
+            if (endpoint === '/signup') {
+                alert('Signup successful! Please log in.');
+                loginTab.click();
+                form.reset();
+            } else {
+                state.username = data.username;
+                state.role = data.role;
+                socket.emit('user-connect', { username: state.username, role: state.role });
+            }
         } catch (error) {
             loginError.textContent = error.message;
         }
     };
     
-    const renderChatUI = () => {
-        showPage('chat');
-    };
-
-    const applyTheme = (isDark) => {
-        if (isDark) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    };
-
     // --- Event Listeners ---
     joinCodeForm.addEventListener('submit', handleJoinCode);
-    loginForm.addEventListener('submit', handleLogin);
+    loginForm.addEventListener('submit', (e) => handleAuth(e, '/login'));
+    signupForm.addEventListener('submit', (e) => handleAuth(e, '/signup'));
 
-    document.getElementById('settings-btn').addEventListener('click', () => {
-        settingsModal.classList.remove('hidden');
-        settingsModal.classList.add('flex');
-    });
-    document.getElementById('close-settings-btn').addEventListener('click', () => {
-        settingsModal.classList.add('hidden');
-        settingsModal.classList.remove('flex');
-    });
-    darkModeToggle.addEventListener('change', (e) => {
-        applyTheme(e.target.checked);
-        localStorage.setItem('darkMode', e.target.checked);
-    });
+    loginTab.addEventListener('click', () => setActiveTab(loginTab, signupTab, loginForm, signupForm));
+    signupTab.addEventListener('click', () => setActiveTab(signupTab, loginTab, signupForm, loginForm));
 
     // --- Socket Handlers ---
     socket.on('join-successful', ({ messages, settings }) => {
-        renderChatUI();
-        document.getElementById('approval-toggle').checked = settings.approvalRequired;
-        if (state.role === 'Owner') {
-            document.getElementById('owner-settings').style.display = 'block';
-        }
+        // This is where the chat UI would be rendered
+        const chatPage = document.getElementById('chat-page');
+        chatPage.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center text-center p-8"><h2 class="text-2xl font-bold">Welcome, ${state.username}!</h2><p class="text-gray-600 mt-2">Your role is ${state.role}. Chat is loading...</p></div>`;
+        showPage('chat');
     });
 
     socket.on('waiting-for-approval', () => {
@@ -117,8 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Initial Load ---
-    const savedTheme = localStorage.getItem('darkMode') === 'true';
-    darkModeToggle.checked = savedTheme;
-    applyTheme(savedTheme);
+    setActiveTab(loginTab, signupTab, loginForm, signupForm);
     showPage('joinCode');
 });
