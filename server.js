@@ -33,7 +33,6 @@ async function initializeServer() {
         await db.read();
         db.data = db.data || { users: {}, mainChat: {} };
         
-        // Ensure the main chat room exists
         if (!db.data.mainChat.messages) {
             db.data.mainChat = {
                 messages: [],
@@ -42,7 +41,6 @@ async function initializeServer() {
             };
         }
 
-        // Ensure the owner account exists
         const ownerUsername = "Austin ;)";
         if (!db.data.users[ownerUsername]) {
             const salt = await bcrypt.genSalt(10);
@@ -74,13 +72,13 @@ app.post('/login', async (req, res) => {
         const { username, password } = req.body;
         const user = db.data.users[username];
 
-        if (user) { // Login existing user
+        if (user) {
             const isMatch = await bcrypt.compare(password, user.passwordHash);
             if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
-        } else { // Create new user
+        } else {
             const salt = await bcrypt.genSalt(10);
             db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt) };
-            db.data.mainChat.roles[username] = 'Member'; // Auto-assign member role
+            db.data.mainChat.roles[username] = 'Member';
             await db.write();
         }
         
@@ -107,7 +105,6 @@ io.on('connection', (socket) => {
             } else {
                 pendingUsers[socket.id] = username;
                 socket.emit('waiting-for-approval');
-                // Notify admins/mods
                 getAdminSockets().forEach(adminSocket => {
                     adminSocket.emit('user-waiting-approval', getPendingUsers());
                 });
@@ -117,7 +114,25 @@ io.on('connection', (socket) => {
         }
     });
     
-    // ... Add other socket handlers for chat, moderation, etc.
+    socket.on('chat-message', async ({ message }) => {
+        try {
+            const user = activeUsers[socket.id];
+            if (user) {
+                const messageData = {
+                    id: uuidv4(),
+                    username: user.username,
+                    message,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                await db.read();
+                db.data.mainChat.messages.push(messageData);
+                await db.write();
+                io.to(MAIN_CHAT_CODE).emit('chat-message', messageData);
+            }
+        } catch (error) {
+            console.error("Chat message error:", error);
+        }
+    });
     
     socket.on('disconnect', () => {
         delete activeUsers[socket.id];
