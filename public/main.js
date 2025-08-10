@@ -91,7 +91,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     joinCodeForm.addEventListener('submit', handleJoinCode);
     loginForm.addEventListener('submit', handleLogin);
-    createPollBtn.addEventListener('click', () => pollModal.classList.remove('hidden'));
+    createPollBtn.addEventListener('click', () => {
+        pollModal.classList.remove('hidden');
+        pollModal.classList.add('flex');
+    });
     addPollOptionBtn.addEventListener('click', () => {
         const container = document.getElementById('poll-options-container');
         const input = document.createElement('input');
