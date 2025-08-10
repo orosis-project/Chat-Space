@@ -38,7 +38,7 @@ async function initializeServer() {
             db.data.chatData = {
                 channels: { 'general': { messages: [] } },
                 dms: {},
-                settings: { approvalRequired: false, giphyEnabled: true },
+                settings: { approvalRequired: false, giphyEnabled: true, backgroundUrl: '' },
                 roles: {},
                 mutes: {},
                 bans: []
