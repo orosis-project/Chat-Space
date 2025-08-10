@@ -59,7 +59,8 @@ async function initializeServer() {
             // Auto-deletion logic
         });
 
-        server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+        // CRITICAL FIX: Bind to host 0.0.0.0 as required by Render
+        server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
     } catch (error) {
         console.error("FATAL: Could not start server.", error);
         process.exit(1);
