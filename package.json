@@ -1,5 +1,5 @@
 {
-  "name": "chat-space-final-v17",
+  "name": "chat-space-final-v18",
   "version": "1.0.0",
   "description": "A real-time chat application with roles, a bot, and advanced moderation",
   "main": "server.js",
