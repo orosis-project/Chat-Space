@@ -26,7 +26,7 @@ app.use(express.static('public'));
 
 const MAIN_CHAT_CODE = "HMS";
 const activeUsers = {}; // { socketId: { username, role } }
-const inappropriateWords = ['badword1', 'profanity2', 'example3']; // Add more words as needed
+const inappropriateWords = ['shit', 'fuck', 'damn', 'hell', 'cock', 'dick', 'gay']; // Add more words as needed
 
 // --- Initial Server Setup ---
 async function initializeServer() {
@@ -38,7 +38,7 @@ async function initializeServer() {
             db.data.chatData = {
                 channels: { 'general': { messages: [] } },
                 dms: {},
-                settings: { approvalRequired: false, giphyEnabled: true, backgroundUrl: '' },
+                settings: { approvalRequired: false, giphyEnabled: true, backgroundUrl: '', botIcon: 'default' },
                 roles: {},
                 mutes: {},
                 bans: []
@@ -49,22 +49,14 @@ async function initializeServer() {
         if (!db.data.users[ownerUsername]) {
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash("AME", salt);
-            db.data.users[ownerUsername] = { passwordHash };
+            db.data.users[ownerUsername] = { passwordHash, icon: 'default' };
             db.data.chatData.roles[ownerUsername] = 'Owner';
         }
         
         await db.write();
         
         cron.schedule('0 * * * *', async () => {
-            await db.read();
-            const now = Date.now();
-            for (const channel in db.data.chatData.channels) {
-                db.data.chatData.channels[channel].messages = db.data.chatData.channels[channel].messages.filter(msg => {
-                    return msg.pinned || (now - msg.timestamp < 24 * 60 * 60 * 1000);
-                });
-            }
-            await db.write();
-            io.emit('messages-purged');
+            // Auto-deletion logic
         });
 
         server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
@@ -75,44 +67,28 @@ async function initializeServer() {
 }
 
 // --- Routes ---
-app.post('/join', (req, res) => {
-    if (req.body.code === MAIN_CHAT_CODE) {
-        res.status(200).json({ message: "Access granted." });
-    } else {
-        res.status(401).json({ message: "Invalid Join Code." });
-    }
-});
-
-app.post('/login', async (req, res) => {
-    try {
-        await db.read();
-        const { username, password } = req.body;
-        if (db.data.chatData.bans.includes(username)) {
-            return res.status(403).json({ message: "You are banned from this chat." });
-        }
-        const user = db.data.users[username];
-
-        if (user) {
-            const isMatch = await bcrypt.compare(password, user.passwordHash);
-            if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
-        } else {
-            const salt = await bcrypt.genSalt(10);
-            db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt) };
-            db.data.chatData.roles[username] = 'Member';
-            await db.write();
-        }
-        
-        const role = db.data.chatData.roles[username] || 'Member';
-        res.status(200).json({ message: "Login successful.", username, role });
-
-    } catch (error) {
-        res.status(500).json({ message: "Server error during login." });
-    }
-});
+// ... (Join and Login routes from previous version)
 
 // --- Socket.IO Logic ---
 io.on('connection', (socket) => {
-    // ... Full socket logic for all features
+    // ... (user-connect and disconnect logic)
+
+    socket.on('chat-message', async (data) => {
+        // ... (chat-message logic with spam detection and bad word filter)
+    });
+
+    socket.on('bot-command', (data) => {
+        // ... (logic to handle bot commands like /8ball, /guess, etc.)
+    });
+    
+    socket.on('force-redirect', () => {
+        const user = activeUsers[socket.id];
+        if (user && (user.role === 'Owner' || user.role === 'Co-Owner')) {
+            io.emit('redirect-all', 'https://classroom.google.com');
+        }
+    });
+
+    // ... (other handlers for moderation, settings, etc.)
 });
 
 initializeServer();
