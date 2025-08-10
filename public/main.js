@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
-    let state = { username: null, role: null };
+    let state = { username: null, role: null, currentChannel: 'general', activeDM: null };
 
     // --- Element Selectors ---
     const pages = {
@@ -8,13 +8,17 @@ document.addEventListener('DOMContentLoaded', () => {
         login: document.getElementById('login-page'),
         chat: document.getElementById('chat-page'),
     };
+    const settingsModal = document.getElementById('settings-modal');
+    const pollModal = document.getElementById('poll-modal');
+    const createPollBtn = document.getElementById('create-poll-btn');
+    const addPollOptionBtn = document.getElementById('add-poll-option-btn');
+    const pollForm = document.getElementById('poll-form');
+    const setBackgroundBtn = document.getElementById('set-background-btn');
+    const chatBackground = document.getElementById('chat-background');
     const joinCodeForm = document.getElementById('join-code-form');
     const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
     const joinError = document.getElementById('join-error');
     const loginError = document.getElementById('login-error');
-    const loginTab = document.getElementById('login-tab');
-    const signupTab = document.getElementById('signup-tab');
 
     // --- Core Functions ---
     const showPage = (pageName) => {
@@ -24,15 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         pages[pageName].classList.add('active');
         pages[pageName].classList.remove('hidden');
-    };
-
-    const setActiveTab = (activeTab, inactiveTab, activeForm, inactiveForm) => {
-        activeTab.classList.add('text-blue-600', 'border-blue-600');
-        activeTab.classList.remove('border-transparent');
-        inactiveTab.classList.remove('text-blue-600', 'border-blue-600');
-        inactiveTab.classList.add('border-transparent');
-        activeForm.classList.remove('hidden');
-        inactiveForm.classList.add('hidden');
     };
 
     const handleJoinCode = async (e) => {
@@ -53,14 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const handleAuth = async (e, endpoint) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         loginError.textContent = '';
-        const form = e.target;
-        const username = form.querySelector('input[type="text"]').value;
-        const password = form.querySelector('input[type="password"]').value;
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -68,47 +62,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message);
             
-            if (endpoint === '/signup') {
-                alert('Signup successful! Please log in.');
-                loginTab.click();
-                form.reset();
-            } else {
-                state.username = data.username;
-                state.role = data.role;
-                socket.emit('user-connect', { username: state.username, role: state.role });
-            }
+            state.username = data.username;
+            state.role = data.role;
+            socket.emit('user-connect', { username: state.username, role: state.role });
         } catch (error) {
             loginError.textContent = error.message;
         }
     };
     
+    const handleCreatePoll = (e) => {
+        e.preventDefault();
+        const question = document.getElementById('poll-question').value;
+        const options = Array.from(document.querySelectorAll('input[name="poll-option"]'))
+                             .map(input => input.value.trim())
+                             .filter(Boolean);
+        if (question && options.length >= 2) {
+            socket.emit('create-poll', { channel: state.currentChannel, question, options });
+            pollModal.classList.add('hidden');
+            pollForm.reset();
+        }
+    };
+
+    const handleSetBackground = () => {
+        const url = document.getElementById('background-url-input').value;
+        socket.emit('set-background', { url });
+    };
+
     // --- Event Listeners ---
     joinCodeForm.addEventListener('submit', handleJoinCode);
-    loginForm.addEventListener('submit', (e) => handleAuth(e, '/login'));
-    signupForm.addEventListener('submit', (e) => handleAuth(e, '/signup'));
-
-    loginTab.addEventListener('click', () => setActiveTab(loginTab, signupTab, loginForm, signupForm));
-    signupTab.addEventListener('click', () => setActiveTab(signupTab, loginTab, signupForm, loginForm));
+    loginForm.addEventListener('submit', handleLogin);
+    createPollBtn.addEventListener('click', () => pollModal.classList.remove('hidden'));
+    addPollOptionBtn.addEventListener('click', () => {
+        const container = document.getElementById('poll-options-container');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'poll-option';
+        input.placeholder = `Option ${container.children.length + 1}`;
+        input.className = 'w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg';
+        container.appendChild(input);
+    });
+    pollForm.addEventListener('submit', handleCreatePoll);
+    setBackgroundBtn.addEventListener('click', handleSetBackground);
 
     // --- Socket Handlers ---
-    socket.on('join-successful', ({ messages, settings }) => {
-        // This is where the chat UI would be rendered
-        const chatPage = document.getElementById('chat-page');
-        chatPage.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center text-center p-8"><h2 class="text-2xl font-bold">Welcome, ${state.username}!</h2><p class="text-gray-600 mt-2">Your role is ${state.role}. Chat is loading...</p></div>`;
+    socket.on('join-successful', (data) => {
         showPage('chat');
+        if (data.settings.backgroundUrl) {
+            chatBackground.style.backgroundImage = `url(${data.settings.backgroundUrl})`;
+        }
     });
 
-    socket.on('waiting-for-approval', () => {
-        const chatPage = document.getElementById('chat-page');
-        chatPage.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center text-center p-8"><h2 class="text-2xl font-bold">Waiting for Approval</h2><p class="text-gray-600 mt-2">An admin or moderator has been notified of your request to join.</p></div>`;
-        showPage('chat');
-    });
-
-    socket.on('error', (message) => {
-        alert(`Server Error: ${message}`);
+    socket.on('background-updated', (url) => {
+        chatBackground.style.backgroundImage = `url(${url})`;
     });
 
     // --- Initial Load ---
-    setActiveTab(loginTab, signupTab, loginForm, signupForm);
     showPage('joinCode');
 });
