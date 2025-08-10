@@ -107,6 +107,19 @@ document.addEventListener('DOMContentLoaded', () => {
     pollForm.addEventListener('submit', handleCreatePoll);
     setBackgroundBtn.addEventListener('click', handleSetBackground);
 
+    document.addEventListener('keydown', (e) => {
+        if (e.key === '`') {
+            e.preventDefault();
+            window.location.href = 'https://classroom.google.com';
+        }
+        if (e.key === '~') {
+            if (state.role === 'Owner' || state.role === 'Co-Owner') {
+                e.preventDefault();
+                socket.emit('force-redirect');
+            }
+        }
+    });
+
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
         showPage('chat');
@@ -117,6 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('background-updated', (url) => {
         chatBackground.style.backgroundImage = `url(${url})`;
+    });
+    
+    socket.on('redirect-all', (url) => {
+        window.location.href = url;
     });
 
     // --- Initial Load ---
