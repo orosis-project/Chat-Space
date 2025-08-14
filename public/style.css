@@ -1,77 +1,42 @@
 /* ... existing styles ... */
 
-/* Message Actions */
-.message-container {
-    position: relative;
-    padding-right: 80px; /* Space for actions */
-}
-.message-actions {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    display: none;
-    gap: 4px;
-    background-color: #e5e7eb;
-    border-radius: 8px;
-    padding: 2px 4px;
-}
-.dark .message-actions { background-color: #374151; }
+/* Message Container & Actions */
+.message-container { position: relative; padding: 4px 8px; margin-bottom: 4px; border-radius: 8px; }
+.message-container:hover { background-color: rgba(0,0,0,0.03); }
+.dark .message-container:hover { background-color: rgba(255,255,255,0.03); }
+.message-actions { position: absolute; top: -16px; right: 12px; display: none; gap: 4px; background-color: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 2px 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.dark .message-actions { background-color: #374151; border-color: #4b5563; }
 .group:hover .message-actions { display: flex; }
-.action-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-}
-.action-btn:hover { background-color: #d1d5db; }
+.action-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; }
+.action-btn:hover { background-color: #f3f4f6; }
 .dark .action-btn:hover { background-color: #4b5563; }
 
 /* Reactions */
-.reactions-container {
-    display: flex;
-    gap: 4px;
-    margin-top: 4px;
-}
-.reaction {
-    font-size: 12px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    background-color: #e5e7eb;
-    border: 1px solid transparent;
-}
+.reactions-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.reaction { font-size: 12px; padding: 2px 6px; border-radius: 10px; background-color: #e5e7eb; border: 1px solid transparent; cursor: pointer; }
 .dark .reaction { background-color: #374151; }
-.reaction.reacted {
-    background-color: #93c5fd; /* blue-300 */
-    border-color: #3b82f6; /* blue-500 */
-}
-.dark .reaction.reacted { background-color: #3b82f6; }
+.reaction.reacted { background-color: #dbeafe; border-color: #60a5fa; }
+.dark .reaction.reacted { background-color: #2563eb; border-color: #93c5fd; }
 
-/* Reply Preview */
-#reply-preview {
-    /* Styles for the reply preview bar above the input */
-}
+/* Reply & Mention */
+.reply-block { font-size: 12px; color: #6b7280; margin-bottom: 4px; padding-left: 8px; border-left: 2px solid #d1d5db; }
+.dark .reply-block { color: #9ca3af; border-color: #4b5563; }
+.mention { background-color: #bfdbfe; color: #1e40af; font-weight: bold; padding: 1px 4px; border-radius: 4px; }
+.dark .mention { background-color: #1e3a8a; color: #dbeafe; }
 
-/* User Context Menu */
-.context-menu-btn {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 8px 12px;
-    border-radius: 4px;
-}
+/* User List & Context Menu */
+.user-list-item { display: flex; align-items: center; gap: 8px; padding: 4px; border-radius: 6px; cursor: pointer; }
+.user-list-item:hover { background-color: #e5e7eb; }
+.dark .user-list-item:hover { background-color: #374151; }
+.status-indicator { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fff; }
+.dark .status-indicator { border-color: #1f2937; }
+.status-indicator.online { background-color: #22c55e; }
+.status-indicator.offline { background-color: #6b7280; }
+.context-menu-btn { display: flex; align-items: center; width: 100%; text-align: left; padding: 8px 12px; border-radius: 4px; }
 .context-menu-btn:hover { background-color: #f3f4f6; }
 .dark .context-menu-btn:hover { background-color: #4b5563; }
 
-/* Mention Highlighting */
-.mention {
-    background-color: #bfdbfe; /* blue-200 */
-    color: #1e40af; /* blue-800 */
-    font-weight: bold;
-    padding: 0 2px;
-    border-radius: 3px;
-}
-.dark .mention {
-    background-color: #1e3a8a; /* blue-900 */
-    color: #dbeafe; /* blue-100 */
-}
+/* Emoji Picker */
+.emoji-btn { font-size: 20px; padding: 4px; border-radius: 8px; }
+.emoji-btn:hover { background-color: #f3f4f6; }
+.dark .emoji-btn:hover { background-color: #4b5563; }
