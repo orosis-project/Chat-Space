@@ -8,38 +8,21 @@
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        /* CRITICAL FIX: Removed !important which was causing the blank screen */
-        .page { display: none; }
-        .page.active { display: flex; }
-        #chat-window::-webkit-scrollbar { width: 8px; }
-        #chat-window::-webkit-scrollbar-track { background: transparent; }
-        #chat-window::-webkit-scrollbar-thumb {
-          background-color: #cbd5e1;
-          border-radius: 20px;
-          border: 3px solid #f1f5f9;
-        }
-        #chat-background {
-            background-size: cover;
-            background-position: center;
-            filter: blur(4px);
-            transform: scale(1.1);
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 font-sans antialiased">
+<body class="bg-gray-100 dark:bg-gray-900 font-sans antialiased overflow-hidden">
 
     <div id="app-container" class="w-full h-screen relative">
         <div id="chat-background" class="absolute inset-0 transition-all duration-500"></div>
         
         <!-- Join Code Page -->
         <div id="join-code-page" class="page active z-10 flex-col items-center justify-center p-4">
-            <div class="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg text-center">
-                <h1 class="text-4xl font-bold text-gray-800 mb-4">Chat Space</h1>
-                <p class="text-gray-500 mb-6">Enter the join code to continue.</p>
+            <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg text-center">
+                <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">Chat Space</h1>
+                <p class="text-gray-500 dark:text-gray-300 mb-6">Enter the join code to continue.</p>
                 <div id="join-error" class="text-red-500 mb-4 h-5 font-semibold"></div>
                 <form id="join-code-form" class="space-y-4">
-                    <input type="text" id="join-code-input" placeholder="Join Code" class="w-full text-center tracking-widest font-bold text-lg px-4 py-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <input type="text" id="join-code-input" placeholder="Join Code" class="w-full text-center tracking-widest font-bold text-lg px-4 py-3 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Enter</button>
                 </form>
             </div>
@@ -47,20 +30,20 @@
 
         <!-- Login Page -->
         <div id="login-page" class="page hidden z-10 flex-col items-center justify-center p-4">
-            <div class="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg">
+            <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg">
                 <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold text-gray-800">Login or Signup</h1>
-                    <p class="text-gray-500 mt-2">Create an account or sign in.</p>
+                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Login or Signup</h1>
+                    <p class="text-gray-500 dark:text-gray-300 mt-2">Create an account or sign in.</p>
                 </div>
                 <div id="login-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
                 <form id="login-form" class="space-y-6">
                     <div class="relative">
                         <i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
                     <div class="relative">
                         <i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                        <input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Login / Signup</button>
                 </form>
@@ -70,33 +53,66 @@
         <!-- Chat Page -->
         <div id="chat-page" class="page hidden h-full z-10">
             <!-- Sidebar for Channels and DMs -->
-            <div id="navigation-sidebar" class="w-72 bg-gray-200/80 dark:bg-gray-800/80 backdrop-blur-md p-4 flex flex-col">
+            <aside id="navigation-sidebar" class="w-64 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 flex flex-col space-y-2">
+                <h2 class="text-lg font-bold dark:text-white px-3">Channels</h2>
+                <div id="channels-list" class="flex-grow">
+                    <a href="#" class="channel-link active flex items-center gap-3 p-3 rounded-lg bg-blue-200 dark:bg-blue-800" data-channel="general">
+                        <i class="ri-hashtag"></i>
+                        <span class="font-semibold dark:text-white">general</span>
+                    </a>
+                </div>
                  <button id="create-poll-btn" class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition">
-                    <i class="ri-survey-line"></i>
+                    <i class="ri-survey-line dark:text-white"></i>
                     <span class="font-semibold dark:text-white">Create Poll</span>
                 </button>
-            </div>
+                 <button id="settings-btn" class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition">
+                    <i class="ri-settings-3-line dark:text-white"></i>
+                    <span class="font-semibold dark:text-white">Settings</span>
+                </button>
+            </aside>
             
             <!-- Main Chat Area -->
-            <div id="main-chat-area" class="flex-grow flex flex-col bg-white/50 dark:bg-gray-900/50 backdrop-blur-md">
-                <!-- Chat area UI -->
-            </div>
+            <main id="main-chat-area" class="flex-grow flex flex-col bg-white/40 dark:bg-gray-900/40 backdrop-blur-md">
+                <header class="p-4 border-b border-gray-300/50 dark:border-gray-700/50 flex items-center justify-between">
+                    <h1 id="channel-title" class="text-2xl font-bold dark:text-white"># general</h1>
+                </header>
+                <div id="chat-window" class="flex-grow p-4 overflow-y-auto">
+                    <!-- Messages will be appended here -->
+                </div>
+                <footer class="p-4">
+                    <form id="message-form" class="flex items-center gap-4">
+                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="flex-grow px-4 py-3 bg-white/80 dark:bg-gray-800/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        <button type="submit" class="bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 transition shadow-md">
+                            <i class="ri-send-plane-2-fill ri-lg"></i>
+                        </button>
+                    </form>
+                </footer>
+            </main>
 
             <!-- User List Sidebar -->
-            <div id="user-list-sidebar" class="w-64 bg-gray-200/80 dark:bg-gray-800/80 backdrop-blur-md p-4">
-                <!-- User list UI -->
-            </div>
+            <aside id="user-list-sidebar" class="w-60 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 overflow-y-auto">
+                <h2 class="text-lg font-bold dark:text-white mb-4">Users</h2>
+                <div id="user-list-container">
+                    <!-- User list will be populated here -->
+                </div>
+            </aside>
         </div>
     </div>
     
     <!-- Settings Modal -->
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-lg">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-lg relative">
+            <button id="close-settings-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white">
+                <i class="ri-close-line ri-xl"></i>
+            </button>
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">Settings</h2>
+            <!-- General user settings can go here -->
             <div id="owner-settings" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700" style="display: none;">
                 <h3 class="text-xl font-bold mb-4 dark:text-white">Owner Controls</h3>
                 <div class="space-y-4">
-                    <input type="text" id="background-url-input" placeholder="Enter background image URL" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                    <button id="set-background-btn" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg">Set Background</button>
+                    <label for="background-url-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Chat Background URL</label>
+                    <input type="text" id="background-url-input" placeholder="Enter background image URL" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                    <button id="set-background-btn" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700">Set Background</button>
                 </div>
             </div>
         </div>
@@ -104,16 +120,21 @@
 
     <!-- Poll Modal -->
     <div id="poll-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
-         <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md">
+         <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md relative">
+            <button id="close-poll-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white">
+                <i class="ri-close-line ri-xl"></i>
+            </button>
             <h2 class="text-2xl font-bold mb-6 dark:text-white">Create a Poll</h2>
             <form id="poll-form" class="space-y-4">
-                <input type="text" id="poll-question" placeholder="Poll Question" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg" required>
+                <input type="text" id="poll-question" placeholder="Poll Question" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required>
                 <div id="poll-options-container" class="space-y-2">
-                    <input type="text" name="poll-option" placeholder="Option 1" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg" required>
-                    <input type="text" name="poll-option" placeholder="Option 2" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg" required>
+                    <input type="text" name="poll-option" placeholder="Option 1" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required>
+                    <input type="text" name="poll-option" placeholder="Option 2" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required>
                 </div>
                 <button type="button" id="add-poll-option-btn" class="text-sm text-blue-500 hover:underline">Add another option</button>
-                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg">Create Poll</button>
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700">Create Poll</button>
+                </div>
             </form>
         </div>
     </div>
