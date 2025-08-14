@@ -1,72 +1,77 @@
-/* Custom scrollbar for the chat window */
-#chat-window::-webkit-scrollbar { 
-    width: 8px; 
+/* ... existing styles ... */
+
+/* Message Actions */
+.message-container {
+    position: relative;
+    padding-right: 80px; /* Space for actions */
+}
+.message-actions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: none;
+    gap: 4px;
+    background-color: #e5e7eb;
+    border-radius: 8px;
+    padding: 2px 4px;
+}
+.dark .message-actions { background-color: #374151; }
+.group:hover .message-actions { display: flex; }
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+.action-btn:hover { background-color: #d1d5db; }
+.dark .action-btn:hover { background-color: #4b5563; }
+
+/* Reactions */
+.reactions-container {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+}
+.reaction {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background-color: #e5e7eb;
+    border: 1px solid transparent;
+}
+.dark .reaction { background-color: #374151; }
+.reaction.reacted {
+    background-color: #93c5fd; /* blue-300 */
+    border-color: #3b82f6; /* blue-500 */
+}
+.dark .reaction.reacted { background-color: #3b82f6; }
+
+/* Reply Preview */
+#reply-preview {
+    /* Styles for the reply preview bar above the input */
 }
 
-#chat-window::-webkit-scrollbar-track { 
-    background: transparent; 
-}
-
-#chat-window::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1; /* cool-gray-300 */
-  border-radius: 20px;
-  border: 3px solid transparent; /* Makes the thumb look thinner */
-  background-clip: content-box;
-}
-
-.dark #chat-window::-webkit-scrollbar-thumb {
-    background-color: #4b5563; /* gray-600 */
-}
-
-/* Styling for the blurred background image */
-#chat-background {
-    background-size: cover;
-    background-position: center;
-    filter: blur(4px);
-    transform: scale(1.1); /* Prevents harsh edges from the blur */
-}
-
-/* Page visibility classes */
-.page { 
-    display: none; 
+/* User Context Menu */
+.context-menu-btn {
+    display: block;
     width: 100%;
-    height: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border-radius: 4px;
 }
-.page.active { 
-    display: flex; 
-}
+.context-menu-btn:hover { background-color: #f3f4f6; }
+.dark .context-menu-btn:hover { background-color: #4b5563; }
 
-/* Channel link styling */
-.channel-link.active {
-    background-color: #dbeafe; /* blue-100 */
+/* Mention Highlighting */
+.mention {
+    background-color: #bfdbfe; /* blue-200 */
+    color: #1e40af; /* blue-800 */
+    font-weight: bold;
+    padding: 0 2px;
+    border-radius: 3px;
 }
-.dark .channel-link.active {
-    background-color: #1e40af; /* blue-800 */
-}
-
-/* Ensure user profile pics are circular and fit correctly */
-.user-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-}
-
-/* Settings modal scrollbar styling */
-#settings-modal > div::-webkit-scrollbar {
-    width: 8px;
-}
-#settings-modal > div::-webkit-scrollbar-track {
-    background: #f1f5f9; /* cool-gray-100 */
-}
-.dark #settings-modal > div::-webkit-scrollbar-track {
-    background: #1f2937; /* gray-800 */
-}
-#settings-modal > div::-webkit-scrollbar-thumb {
-    background-color: #94a3b8; /* cool-gray-400 */
-    border-radius: 20px;
-}
-.dark #settings-modal > div::-webkit-scrollbar-thumb {
-    background-color: #4b5563; /* gray-600 */
+.dark .mention {
+    background-color: #1e3a8a; /* blue-900 */
+    color: #dbeafe; /* blue-100 */
 }
