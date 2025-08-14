@@ -44,3 +44,29 @@
     background-color: #1e40af; /* blue-800 */
 }
 
+/* Ensure user profile pics are circular and fit correctly */
+.user-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+/* Settings modal scrollbar styling */
+#settings-modal > div::-webkit-scrollbar {
+    width: 8px;
+}
+#settings-modal > div::-webkit-scrollbar-track {
+    background: #f1f5f9; /* cool-gray-100 */
+}
+.dark #settings-modal > div::-webkit-scrollbar-track {
+    background: #1f2937; /* gray-800 */
+}
+#settings-modal > div::-webkit-scrollbar-thumb {
+    background-color: #94a3b8; /* cool-gray-400 */
+    border-radius: 20px;
+}
+.dark #settings-modal > div::-webkit-scrollbar-thumb {
+    background-color: #4b5563; /* gray-600 */
+}
