@@ -52,16 +52,13 @@
 
         <!-- Chat Page -->
         <div id="chat-page" class="page hidden h-full z-10">
-            <!-- Sidebar for Channels and DMs -->
             <aside id="navigation-sidebar" class="w-64 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 flex flex-col">
                 <div class="flex-grow">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-lg font-bold dark:text-white px-3">Channels</h2>
                         <button id="add-channel-btn" class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"><i class="ri-add-line"></i></button>
                     </div>
-                    <div id="channels-list" class="space-y-1">
-                        <!-- Channel links will be populated here -->
-                    </div>
+                    <div id="channels-list" class="space-y-1"></div>
                 </div>
                  <button id="create-poll-btn" class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition">
                     <i class="ri-survey-line dark:text-white"></i>
@@ -73,17 +70,14 @@
                 </button>
             </aside>
             
-            <!-- Main Chat Area -->
             <main id="main-chat-area" class="flex-grow flex flex-col bg-white/40 dark:bg-gray-900/40 backdrop-blur-md">
                 <header class="p-4 border-b border-gray-300/50 dark:border-gray-700/50 flex items-center justify-between">
                     <h1 id="channel-title" class="text-2xl font-bold dark:text-white"># general</h1>
                 </header>
-                <div id="chat-window" class="flex-grow p-4 overflow-y-auto">
-                    <!-- Messages will be appended here -->
-                </div>
+                <div id="chat-window" class="flex-grow p-4 overflow-y-auto"></div>
                 <footer class="p-4">
                     <form id="message-form" class="flex items-center gap-4">
-                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="flex-grow px-4 py-3 bg-white/80 dark:bg-gray-800/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        <input type="text" id="message-input" placeholder="Type a message or a command (e.g., !joke)" autocomplete="off" class="flex-grow px-4 py-3 bg-white/80 dark:bg-gray-800/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
                         <button type="submit" class="bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 transition shadow-md">
                             <i class="ri-send-plane-2-fill ri-lg"></i>
                         </button>
@@ -91,12 +85,9 @@
                 </footer>
             </main>
 
-            <!-- User List Sidebar -->
             <aside id="user-list-sidebar" class="w-60 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 overflow-y-auto">
                 <h2 class="text-lg font-bold dark:text-white mb-4">Users</h2>
-                <div id="user-list-container">
-                    <!-- User list will be populated here -->
-                </div>
+                <div id="user-list-container"></div>
             </aside>
         </div>
     </div>
@@ -109,7 +100,6 @@
             </button>
             <h2 class="text-2xl font-bold mb-6 dark:text-white">Settings</h2>
             
-            <!-- User Profile Settings -->
             <div class="mb-8">
                 <h3 class="text-xl font-bold mb-4 dark:text-white">My Profile</h3>
                 <form id="profile-settings-form" class="space-y-4">
@@ -125,7 +115,6 @@
                 </form>
             </div>
 
-            <!-- Preferences -->
             <div class="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <h3 class="text-xl font-bold mb-4 dark:text-white">Preferences</h3>
                 <div class="flex items-center justify-between">
@@ -137,11 +126,9 @@
                 </div>
             </div>
             
-            <!-- Owner Controls -->
             <div id="owner-settings" class="pt-6 border-t border-gray-200 dark:border-gray-700" style="display: none;">
                 <h3 class="text-xl font-bold mb-4 dark:text-white">Owner Controls</h3>
                 
-                <!-- Background Changer -->
                 <div class="space-y-4 mb-8">
                     <label for="background-url-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Chat Background URL</label>
                     <div class="flex gap-2">
@@ -150,8 +137,7 @@
                     </div>
                 </div>
 
-                <!-- User Management -->
-                <div>
+                <div class="mb-8">
                     <h4 class="text-lg font-bold mb-4 dark:text-white">Manage Users</h4>
                     <form id="admin-user-form" class="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                         <div>
@@ -169,14 +155,18 @@
                         <div>
                             <label for="admin-role-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Set Role</label>
                             <select id="admin-role-select" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
-                                <option>Member</option>
-                                <option>Moderator</option>
-                                <option>Co-Owner</option>
-                                <option>Owner</option>
+                                <option>Member</option> <option>Moderator</option> <option>Co-Owner</option> <option>Owner</option>
                             </select>
                         </div>
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Update User</button>
                     </form>
+                </div>
+
+                <div>
+                    <h4 class="text-lg font-bold mb-2 dark:text-white">Flagged Message Log</h4>
+                    <div id="flagged-messages-container" class="max-h-60 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900">
+                        <!-- Log will be populated here -->
+                    </div>
                 </div>
             </div>
         </div>
