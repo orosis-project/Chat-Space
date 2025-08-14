@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Element Selectors ---
     const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page') };
-    const joinCodeBtn = document.getElementById('join-code-btn'); // New button selector
+    const joinCodeForm = document.getElementById('join-code-form'); // Select the form
     const loginForm = document.getElementById('login-form');
     const chatWindow = document.getElementById('chat-window');
     const userContextMenu = document.getElementById('user-context-menu');
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateDmList = () => { /* ... (same as previous correct version) ... */ };
 
     // --- Event Handlers ---
-    joinCodeBtn.addEventListener('click', async () => { // Changed from form submit to button click
+    const handleJoinAttempt = async () => {
         const joinError = document.getElementById('join-error');
         joinError.textContent = '';
         const code = document.getElementById('join-code-input').value;
@@ -60,7 +60,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             joinError.textContent = error.message;
         }
+    };
+
+    joinCodeForm.addEventListener('submit', (e) => {
+        e.preventDefault(); // This is the critical fix for the reload bug
+        handleJoinAttempt();
     });
+    
+    // The button click is implicitly handled by the form's submit event now,
+    // but we can keep it for users who might not press Enter.
+    document.getElementById('join-code-btn').addEventListener('click', handleJoinAttempt);
+
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
