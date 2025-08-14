@@ -53,13 +53,15 @@
         <!-- Chat Page -->
         <div id="chat-page" class="page hidden h-full z-10">
             <!-- Sidebar for Channels and DMs -->
-            <aside id="navigation-sidebar" class="w-64 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 flex flex-col space-y-2">
-                <h2 class="text-lg font-bold dark:text-white px-3">Channels</h2>
-                <div id="channels-list" class="flex-grow">
-                    <a href="#" class="channel-link active flex items-center gap-3 p-3 rounded-lg bg-blue-200 dark:bg-blue-800" data-channel="general">
-                        <i class="ri-hashtag"></i>
-                        <span class="font-semibold dark:text-white">general</span>
-                    </a>
+            <aside id="navigation-sidebar" class="w-64 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 flex flex-col">
+                <div class="flex-grow">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-bold dark:text-white px-3">Channels</h2>
+                        <button id="add-channel-btn" class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"><i class="ri-add-line"></i></button>
+                    </div>
+                    <div id="channels-list" class="space-y-1">
+                        <!-- Channel links will be populated here -->
+                    </div>
                 </div>
                  <button id="create-poll-btn" class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition">
                     <i class="ri-survey-line dark:text-white"></i>
@@ -100,26 +102,76 @@
     </div>
     
     <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-lg relative">
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
             <button id="close-settings-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white">
                 <i class="ri-close-line ri-xl"></i>
             </button>
             <h2 class="text-2xl font-bold mb-6 dark:text-white">Settings</h2>
-            <!-- General user settings can go here -->
-            <div id="owner-settings" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700" style="display: none;">
+            
+            <!-- User Profile Settings -->
+            <div class="mb-8">
+                <h3 class="text-xl font-bold mb-4 dark:text-white">My Profile</h3>
+                <form id="profile-settings-form" class="space-y-4">
+                    <div>
+                        <label for="profile-nickname-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nickname</label>
+                        <input type="text" id="profile-nickname-input" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                    </div>
+                    <div>
+                        <label for="profile-icon-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Profile Picture URL</label>
+                        <input type="text" id="profile-icon-input" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Save Profile</button>
+                </form>
+            </div>
+            
+            <!-- Owner Controls -->
+            <div id="owner-settings" class="pt-6 border-t border-gray-200 dark:border-gray-700" style="display: none;">
                 <h3 class="text-xl font-bold mb-4 dark:text-white">Owner Controls</h3>
-                <div class="space-y-4">
+                
+                <!-- Background Changer -->
+                <div class="space-y-4 mb-8">
                     <label for="background-url-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Chat Background URL</label>
-                    <input type="text" id="background-url-input" placeholder="Enter background image URL" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
-                    <button id="set-background-btn" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700">Set Background</button>
+                    <div class="flex gap-2">
+                        <input type="text" id="background-url-input" placeholder="Enter background image URL" class="flex-grow px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                        <button id="set-background-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Set</button>
+                    </div>
+                </div>
+
+                <!-- User Management -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4 dark:text-white">Manage Users</h4>
+                    <form id="admin-user-form" class="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div>
+                           <label for="admin-user-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Select User</label>
+                           <select id="admin-user-select" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg"></select>
+                        </div>
+                        <div>
+                            <label for="admin-nickname-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Edit Nickname</label>
+                            <input type="text" id="admin-nickname-input" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                        </div>
+                        <div>
+                            <label for="admin-icon-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Edit Icon URL</label>
+                            <input type="text" id="admin-icon-input" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                        </div>
+                        <div>
+                            <label for="admin-role-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Set Role</label>
+                            <select id="admin-role-select" class="mt-1 w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg">
+                                <option>Member</option>
+                                <option>Moderator</option>
+                                <option>Co-Owner</option>
+                                <option>Owner</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Update User</button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Poll Modal -->
-    <div id="poll-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div id="poll-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 p-4">
          <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md relative">
             <button id="close-poll-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-white">
                 <i class="ri-close-line ri-xl"></i>
