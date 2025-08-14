@@ -24,11 +24,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Constants & State ---
 const MAIN_CHAT_CODE = "HMS";
-const HEIM_BOT_ICON = 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_2/v1700469524/williamsvillek12org/zil1pj6ifch1f4h14oid/8HEIMMIDDLE.png';
 const activeUsers = {}; // { username: { socketId, role, icon, nickname } }
-const messageTimestamps = {};
-const cooldowns = {};
-
 const inappropriateWords = ['badword1', 'profanity2', 'swear3', 'examplebadword', 'anotherexample'];
 
 // --- Utility Functions ---
@@ -86,9 +82,32 @@ async function initializeServer() {
     }
 }
 
-// --- API Routes (Unchanged) ---
-app.post('/join', (req, res) => { /* ... */ });
-app.post('/login', async (req, res) => { /* ... */ });
+// --- API Routes ---
+app.post('/join', (req, res) => {
+    if (req.body.code === MAIN_CHAT_CODE) {
+        res.status(200).json({ message: "Access granted." });
+    } else {
+        res.status(401).json({ message: "Invalid Join Code." });
+    }
+});
+
+app.post('/login', async (req, res) => {
+    await db.read();
+    const { username, password } = req.body;
+    const user = db.data.users[username];
+    if (user) {
+        const isMatch = await bcrypt.compare(password, user.passwordHash);
+        if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
+    } else {
+        const salt = await bcrypt.genSalt(10);
+        db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt), nickname: username, icon: 'default' };
+        db.data.chatData.roles[username] = 'Member';
+        await db.write();
+    }
+    const role = db.data.chatData.roles[username] || 'Member';
+    const nickname = db.data.users[username].nickname || username;
+    res.status(200).json({ username, role, nickname });
+});
 
 // --- Socket.IO Logic ---
 io.on('connection', (socket) => {
@@ -100,7 +119,10 @@ io.on('connection', (socket) => {
         activeUsers[username] = { socketId: socket.id, role, nickname, icon: db.data.users[username]?.icon || 'default' };
         
         Object.keys(db.data.chatData.channels).forEach(channel => socket.join(channel));
-        socket.join(username); // Private room for DMs
+        Object.keys(db.data.chatData.dms).forEach(dmKey => {
+            if (dmKey.includes(username)) socket.join(dmKey);
+        });
+        socket.join(username);
 
         socket.emit('join-successful', {
             settings: db.data.chatData.settings,
@@ -112,42 +134,33 @@ io.on('connection', (socket) => {
             userRelations: db.data.chatData.userRelations[username] || { friends: [], blocked: [] }
         });
 
-        io.emit('update-user-list', { activeUsers, allUsers: Object.keys(db.data.users) });
+        io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
     });
 
     socket.on('disconnect', () => {
         if (currentUsername) {
             delete activeUsers[currentUsername];
-            io.emit('update-user-list', { activeUsers, allUsers: Object.keys(db.data.users) });
+            io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
         }
     });
 
     socket.on('send-message', async ({ channel, message, replyingTo }) => {
-        const { cleanMessage, flagged } = filterMessage(message);
-        // ... (flagged message logic)
-
+        const { cleanMessage } = filterMessage(message);
         const messageObject = {
-            id: uuidv4(),
-            author: currentUsername,
-            nickname: activeUsers[currentUsername].nickname,
-            content: cleanMessage,
-            timestamp: Date.now(),
-            icon: activeUsers[currentUsername].icon,
-            pinned: false,
-            reactions: {},
-            replyingTo: replyingTo || null
+            id: uuidv4(), author: currentUsername, nickname: activeUsers[currentUsername].nickname,
+            content: cleanMessage, timestamp: Date.now(), icon: activeUsers[currentUsername].icon,
+            pinned: false, reactions: {}, replyingTo: replyingTo || null
         };
         
         db.data.chatData.channels[channel].messages.push(messageObject);
         await db.write();
         io.to(channel).emit('new-message', { channel, message: messageObject });
 
-        // Mention notifications
         const mentionedUsers = [...message.matchAll(/@([a-zA-Z0-9_ ;)]+)/g)].map(match => match[1].trim());
         mentionedUsers.forEach(mentionedUser => {
             if (activeUsers[mentionedUser]) {
                 io.to(activeUsers[mentionedUser].socketId).emit('notification', {
-                    title: `You were mentioned by ${activeUsers[currentUsername].nickname} in #${channel}`,
+                    title: `Mention from ${activeUsers[currentUsername].nickname} in #${channel}`,
                     body: message
                 });
             }
@@ -159,10 +172,8 @@ io.on('connection', (socket) => {
         db.data.chatData.dms[dmKey] = db.data.chatData.dms[dmKey] || { messages: [] };
         
         const messageObject = {
-            id: uuidv4(),
-            sender: currentUsername,
-            content: message,
-            timestamp: Date.now()
+            id: uuidv4(), sender: currentUsername, senderNickname: activeUsers[currentUsername].nickname,
+            content: message, timestamp: Date.now(), reactions: {}
         };
         db.data.chatData.dms[dmKey].messages.push(messageObject);
         await db.write();
@@ -178,7 +189,7 @@ io.on('connection', (socket) => {
         let message;
         if (chatType === 'channel') {
             message = db.data.chatData.channels[chatId]?.messages.find(m => m.id === messageId);
-        } else { // dm
+        } else {
             message = db.data.chatData.dms[chatId]?.messages.find(m => m.id === messageId);
         }
         if (!message) return;
@@ -187,14 +198,10 @@ io.on('connection', (socket) => {
         message.reactions[emoji] = message.reactions[emoji] || [];
         
         const userIndex = message.reactions[emoji].indexOf(currentUsername);
-        if (userIndex > -1) {
-            message.reactions[emoji].splice(userIndex, 1);
-        } else {
-            message.reactions[emoji].push(currentUsername);
-        }
+        (userIndex > -1) ? message.reactions[emoji].splice(userIndex, 1) : message.reactions[emoji].push(currentUsername);
         
         await db.write();
-        io.to(chatId).emit('reaction-updated', { chatId, messageId, reactions: message.reactions });
+        io.to(chatId).emit('reaction-updated', { chatType, chatId, messageId, reactions: message.reactions });
     });
 
     socket.on('toggle-pin', async ({ channel, messageId }) => {
@@ -211,21 +218,17 @@ io.on('connection', (socket) => {
         db.data.chatData.userRelations[currentUsername] = db.data.chatData.userRelations[currentUsername] || { friends: [], blocked: [] };
         const relations = db.data.chatData.userRelations[currentUsername];
         
-        if (type === 'friend') {
-            if (!relations.friends.includes(targetUser)) relations.friends.push(targetUser);
-        } else if (type === 'block') {
-            if (!relations.blocked.includes(targetUser)) relations.blocked.push(targetUser);
-        } else if (type === 'unfriend') {
-            relations.friends = relations.friends.filter(f => f !== targetUser);
-        } else if (type === 'unblock') {
-            relations.blocked = relations.blocked.filter(b => b !== targetUser);
-        }
+        const updateSet = (arr, val) => new Set(arr).add(val);
+        const removeVal = (arr, val) => arr.filter(item => item !== val);
+
+        if (type === 'friend') relations.friends = [...updateSet(relations.friends, targetUser)];
+        else if (type === 'block') relations.blocked = [...updateSet(relations.blocked, targetUser)];
+        else if (type === 'unfriend') relations.friends = removeVal(relations.friends, targetUser);
+        else if (type === 'unblock') relations.blocked = removeVal(relations.blocked, targetUser);
         
         await db.write();
         socket.emit('relations-updated', relations);
     });
-
-    // ... other handlers like create-channel, profile updates, etc.
 });
 
 initializeServer();
