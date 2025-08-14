@@ -34,8 +34,8 @@
                 </div>
                 <div id="login-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
                 <form id="login-form" class="space-y-6">
-                    <div class="relative"><i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
-                    <div class="relative"><i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
+                    <div class="relative"><i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required></div>
+                    <div class="relative"><i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required></div>
                     <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Login / Signup</button>
                 </form>
             </div>
@@ -86,10 +86,13 @@
         <button data-action="unfriend" class="context-menu-btn"><i class="ri-user-unfollow-line mr-2"></i>Remove Friend</button>
         <button data-action="block" class="context-menu-btn text-red-500"><i class="ri-forbid-2-line mr-2"></i>Block</button>
         <button data-action="unblock" class="context-menu-btn text-green-500"><i class="ri-check-line mr-2"></i>Unblock</button>
+        <div class="moderation-actions">
+            <hr class="my-1 border-gray-200 dark:border-gray-700">
+            <button data-action="kick" class="context-menu-btn text-orange-500"><i class="ri-logout-box-r-line mr-2"></i>Kick</button>
+            <button data-action="ban" class="context-menu-btn text-red-700"><i class="ri-delete-bin-line mr-2"></i>Ban</button>
+        </div>
     </div>
 
     <div id="emoji-picker" class="hidden absolute z-50 bg-white dark:bg-gray-800 rounded-md shadow-lg p-2 grid grid-cols-6 gap-1"></div>
-    
-    <!-- Settings Modal (Unchanged) -->
 </body>
 </html>
