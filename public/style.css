@@ -1,12 +1,8 @@
-/* ... existing styles ... */
-
 /* Message Container & Actions */
-.message-container { position: relative; padding: 4px 8px; margin-bottom: 4px; border-radius: 8px; }
 .message-container:hover { background-color: rgba(0,0,0,0.03); }
 .dark .message-container:hover { background-color: rgba(255,255,255,0.03); }
-.message-actions { position: absolute; top: -16px; right: 12px; display: none; gap: 4px; background-color: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 2px 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.message-actions { position: absolute; top: -16px; right: 12px; display: none; gap: 4px; background-color: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 2px 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
 .dark .message-actions { background-color: #374151; border-color: #4b5563; }
-.group:hover .message-actions { display: flex; }
 .action-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; }
 .action-btn:hover { background-color: #f3f4f6; }
 .dark .action-btn:hover { background-color: #4b5563; }
@@ -37,6 +33,13 @@
 .dark .context-menu-btn:hover { background-color: #4b5563; }
 
 /* Emoji Picker */
-.emoji-btn { font-size: 20px; padding: 4px; border-radius: 8px; }
+.emoji-btn { font-size: 20px; padding: 4px; border-radius: 8px; background: none; border: none; cursor: pointer; }
 .emoji-btn:hover { background-color: #f3f4f6; }
 .dark .emoji-btn:hover { background-color: #4b5563; }
+
+/* General Sidebar & Chat Links */
+.sidebar-btn { padding: 4px; border-radius: 6px; }
+.sidebar-btn:hover { background-color: #d1d5db; }
+.dark .sidebar-btn:hover { background-color: #4b5563; }
+.chat-link.active { background-color: #dbeafe; }
+.dark .chat-link.active { background-color: #1e40af; }
