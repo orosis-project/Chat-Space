@@ -23,12 +23,17 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Constants & State ---
 const MAIN_CHAT_CODE = "HMS";
-const activeUsers = {}; // { username: { socketId, role, icon } }
+const HEIM_BOT_ICON = 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_2/v1700469524/williamsvillek12org/zil1pj6ifch1f4h14oid/8HEIMMIDDLE.png';
+const activeUsers = {}; // { username: { socketId, role, icon, nickname } }
 const messageTimestamps = {}; // { username: [timestamps] }
 const cooldowns = {}; // { username: timeoutId }
+const activeGames = {}; // { channel: { type, state } }
 
-const inappropriateWords = ['badword1', 'profanity2', 'swear3'];
+const inappropriateWords = [
+    'badword1', 'profanity2', 'swear3', 'examplebadword', 'anotherexample'
+];
 
 // --- Utility Functions ---
 const hasPermission = (username, requiredRole) => {
@@ -51,6 +56,87 @@ const filterMessage = (message) => {
     return { cleanMessage, flagged };
 };
 
+// --- Bot Logic ---
+const botSay = (channel, text) => {
+    io.to(channel).emit('bot-message', { channel, text, icon: HEIM_BOT_ICON });
+};
+
+const handleBotCommand = (fullMessage, username, channel) => {
+    const [commandWithPrefix, ...args] = fullMessage.split(' ');
+    const command = commandWithPrefix.substring(1).toLowerCase(); // Remove '!'
+    const userNickname = activeUsers[username]?.nickname || username;
+
+    // A simple command registry for permission checks
+    const commands = {
+        'say': { minRank: 'Owner' }, 'saymain': { minRank: 'Owner' }, 'nickname': { minRank: 'Owner' },
+        'exit': { minRank: 'Owner' }, 'minrank': { minRank: 'Owner' }, 'autoregular': { minRank: 'Owner' },
+        'autoban': { minRank: 'Owner' }, 'typerace': { minRank: 'Moderator' }, 'numrace': { minRank: 'Moderator' },
+        'trivia': { minRank: 'Moderator' }, 'end': { minRank: 'Moderator' }, 'urban': { minRank: 'Moderator' },
+        // Visitor commands
+        'define': { minRank: 'Member' }, 'weather': { minRank: 'Member' }, 'play': { minRank: 'Member' },
+        'commands': { minRank: 'Member' }, '8ball': { minRank: 'Member' }, 'liedetector': { minRank: 'Member' },
+        'better': { minRank: 'Member' }, 'choose': { minRank: 'Member' }, 'users': { minRank: 'Member' },
+        'slap': { minRank: 'Member' }, 'lovetest': { minRank: 'Member' }, 'coinflip': { minRank: 'Member' },
+        'dice': { minRank: 'Member' }, 'countdown': { minRank: 'Member' }, 'joke': { minRank: 'Member' }
+    };
+
+    if (commands[command] && !hasPermission(username, commands[command].minRank)) {
+        return botSay(channel, `Sorry, ${userNickname}, you don't have permission to use the !${command} command.`);
+    }
+
+    switch (command) {
+        // --- Fun Commands ---
+        case '8ball':
+            const responses = ["It is certain.", "Without a doubt.", "Yes, definitely.", "Ask again later.", "Cannot predict now.", "Don't count on it.", "My sources say no.", "Outlook not so good."];
+            botSay(channel, `🎱 Magic 8-Ball says: "${responses[Math.floor(Math.random() * responses.length)]}"`);
+            break;
+        case 'slap':
+            const target = args.join(' ');
+            botSay(channel, `* ${userNickname} slaps ${target || 'the air'} around a bit with a large trout!`);
+            break;
+        case 'joke':
+            const jokes = ["Why don't scientists trust atoms? Because they make up everything!", "I told my wife she should embrace her mistakes. She gave me a hug.", "What do you call a fake noodle? An Impasta."];
+            botSay(channel, `😂 ${jokes[Math.floor(Math.random() * jokes.length)]}`);
+            break;
+        case 'coinflip':
+            botSay(channel, `🪙 The coin flip result is: ${Math.random() > 0.5 ? 'Heads' : 'Tails'}`);
+            break;
+        case 'dice':
+            const sides = parseInt(args[0], 10) || 6;
+            const roll = Math.floor(Math.random() * sides) + 1;
+            botSay(channel, `🎲 You rolled a ${sides}-sided die and got: ${roll}`);
+            break;
+        
+        // --- Utility Commands ---
+        case 'users':
+            botSay(channel, `There are currently ${Object.keys(activeUsers).length} user(s) online.`);
+            break;
+        case 'weather':
+            const location = args.join(' ') || 'your location';
+            botSay(channel, `☀️ The weather in ${location} is currently sunny. (This is a demo, not real weather data)`);
+            break;
+        case 'define':
+             const word = args.join(' ') || 'word';
+             botSay(channel, `📖 Definition of ${word}: A sequence of letters with a specific meaning. (This is a demo, not a real dictionary)`);
+             break;
+        case 'commands':
+            botSay(channel, "A full list of commands is available in the project's README file.");
+            break;
+
+        // --- Owner Commands ---
+        case 'say':
+            const msg = args.join(' ');
+            if (msg) io.to(channel).emit('new-message', { channel, message: { nickname: 'Heim Bot', content: msg, timestamp: Date.now(), icon: HEIM_BOT_ICON }});
+            break;
+
+        // --- Default ---
+        default:
+            botSay(channel, `Unknown command: "!${command}". Type !commands for a list of available commands.`);
+            break;
+    }
+};
+
+
 // --- Initial Server Setup ---
 async function initializeServer() {
     try {
@@ -64,7 +150,8 @@ async function initializeServer() {
                 settings: { backgroundUrl: '' },
                 roles: {},
                 mutes: {},
-                bans: []
+                bans: [],
+                flaggedMessages: [] // Initialize flagged messages log
             };
         }
 
@@ -111,31 +198,22 @@ app.post('/login', async (req, res) => {
     try {
         await db.read();
         const { username, password } = req.body;
-
         if (db.data.chatData.bans && db.data.chatData.bans.includes(username)) {
             return res.status(403).json({ message: "You are banned from this chat." });
         }
-
         const user = db.data.users[username];
-
         if (user) {
             const isMatch = await bcrypt.compare(password, user.passwordHash);
             if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
         } else {
             const salt = await bcrypt.genSalt(10);
-            db.data.users[username] = {
-                passwordHash: await bcrypt.hash(password, salt),
-                nickname: username,
-                icon: 'default'
-            };
+            db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt), nickname: username, icon: 'default' };
             db.data.chatData.roles[username] = 'Member';
             await db.write();
         }
-
         const role = db.data.chatData.roles[username] || 'Member';
         const nickname = db.data.users[username].nickname || username;
         res.status(200).json({ message: "Login successful.", username, role, nickname });
-
     } catch (error) {
         console.error("Login error:", error);
         res.status(500).json({ message: "Server error during login." });
@@ -149,16 +227,8 @@ io.on('connection', (socket) => {
     socket.on('user-connect', async ({ username, role, nickname }) => {
         await db.read();
         currentUsername = username;
-        activeUsers[username] = {
-            socketId: socket.id,
-            role: role,
-            nickname: nickname,
-            icon: db.data.users[username]?.icon || 'default'
-        };
-
-        // Have user join all existing channel rooms to receive updates
+        activeUsers[username] = { socketId: socket.id, role, nickname, icon: db.data.users[username]?.icon || 'default' };
         Object.keys(db.data.chatData.channels).forEach(channel => socket.join(channel));
-
         socket.emit('join-successful', {
             settings: db.data.chatData.settings,
             channels: db.data.chatData.channels,
@@ -166,21 +236,23 @@ io.on('connection', (socket) => {
             allUsers: db.data.users,
             roles: db.data.chatData.roles
         });
-
         io.emit('update-user-list', activeUsers);
         io.to('general').emit('system-message', { channel: 'general', text: `${nickname} has joined the chat.` });
     });
     
     socket.on('get-channel-history', (channelName) => {
         const channel = db.data.chatData.channels[channelName];
-        if (channel) {
-            socket.emit('channel-history', { channel: channelName, messages: channel.messages });
-        }
+        if (channel) socket.emit('channel-history', { channel: channelName, messages: channel.messages });
     });
 
     socket.on('send-message', async (data) => {
         const { channel, message } = data;
         const sender = currentUsername;
+
+        if (message.startsWith('!')) {
+            handleBotCommand(message, sender, channel);
+            return;
+        }
 
         const now = Date.now();
         messageTimestamps[sender] = (messageTimestamps[sender] || []).filter(ts => now - ts < 5000);
@@ -193,24 +265,36 @@ io.on('connection', (socket) => {
             return;
         }
 
-        const { cleanMessage } = filterMessage(message);
-        const messageObject = {
-            id: uuidv4(),
-            author: sender,
-            nickname: activeUsers[sender].nickname,
-            content: cleanMessage,
-            timestamp: now,
-            role: activeUsers[sender].role,
-            icon: activeUsers[sender].icon,
-            pinned: false
-        };
-        
+        const { cleanMessage, flagged } = filterMessage(message);
+        if (flagged) {
+            db.data.chatData.flaggedMessages.push({
+                username: sender,
+                nickname: activeUsers[sender].nickname,
+                originalMessage: message,
+                channel: channel,
+                timestamp: now
+            });
+            await db.write();
+            // Notify owner if they are online
+            const owner = Object.values(activeUsers).find(u => u.role === 'Owner');
+            if (owner) {
+                io.to(owner.socketId).emit('new-flagged-message');
+            }
+        }
+
+        const messageObject = { id: uuidv4(), author: sender, nickname: activeUsers[sender].nickname, content: cleanMessage, timestamp: now, role: activeUsers[sender].role, icon: activeUsers[sender].icon, pinned: false };
         db.data.chatData.channels[channel].messages.push(messageObject);
         await db.write();
-
         io.to(channel).emit('new-message', { channel, message: messageObject });
     });
     
+    socket.on('get-flagged-messages', async () => {
+        if (hasPermission(currentUsername, 'Owner')) {
+            await db.read();
+            socket.emit('flagged-messages-log', db.data.chatData.flaggedMessages);
+        }
+    });
+
     socket.on('create-channel', async ({ channelName }) => {
         if (hasPermission(currentUsername, 'Member')) {
             await db.read();
@@ -218,8 +302,7 @@ io.on('connection', (socket) => {
                 db.data.chatData.channels[channelName] = { messages: [], creator: currentUsername };
                 await db.write();
                 io.emit('channels-updated', db.data.chatData.channels);
-                // Make all connected sockets join the new channel room
-                io.sockets.sockets.forEach(s => s.join(channelName));
+                io.sockets.sockets.forEach((sock) => sock.join(channelName));
             }
         }
     });
@@ -230,10 +313,8 @@ io.on('connection', (socket) => {
             db.data.users[currentUsername].nickname = nickname;
             db.data.users[currentUsername].icon = icon;
             await db.write();
-            
             activeUsers[currentUsername].nickname = nickname;
             activeUsers[currentUsername].icon = icon;
-            
             io.emit('update-user-list', activeUsers);
             socket.emit('profile-updated', { nickname, icon });
         }
@@ -247,16 +328,12 @@ io.on('connection', (socket) => {
                 db.data.users[targetUser].icon = icon;
                 db.data.chatData.roles[targetUser] = role;
                 await db.write();
-                
                 if (activeUsers[targetUser]) {
                     activeUsers[targetUser].nickname = nickname;
                     activeUsers[targetUser].icon = icon;
                     activeUsers[targetUser].role = role;
-                    
                     const targetSocket = io.sockets.sockets.get(activeUsers[targetUser].socketId);
-                    if (targetSocket) {
-                        targetSocket.emit('force-update-profile', { nickname, icon, role });
-                    }
+                    if (targetSocket) targetSocket.emit('force-update-profile', { nickname, icon, role });
                 }
                 io.emit('update-user-list', activeUsers);
             }
@@ -281,7 +358,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('force-redirect', () => {
-        // This checks if the user sending the event has the correct role.
         if (hasPermission(currentUsername, 'Owner') || hasPermission(currentUsername, 'Co-Owner')) {
             io.emit('redirect-all', 'https://classroom.google.com/');
         }
