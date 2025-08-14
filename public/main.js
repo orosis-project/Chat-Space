@@ -1,6 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io({ autoConnect: false });
-    let state = { username: null, role: null, nickname: null, icon: null, currentChannel: 'general', allUsers: {}, roles: {} };
+    let state = { 
+        username: null, 
+        role: null, 
+        nickname: null, 
+        icon: null, 
+        currentChannel: 'general', 
+        allUsers: {}, 
+        roles: {},
+        notificationsEnabled: true // Default to true
+    };
 
     // --- Element Selectors ---
     const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page'), };
@@ -19,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeSettingsBtn = document.getElementById('close-settings-btn');
     const closePollBtn = document.getElementById('close-poll-btn');
     const addChannelBtn = document.getElementById('add-channel-btn');
+    const notificationToggle = document.getElementById('notification-toggle');
     const chatBackground = document.getElementById('chat-background');
     const joinError = document.getElementById('join-error');
     const loginError = document.getElementById('login-error');
@@ -54,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showNotification = (title, body, icon) => {
+        if (!state.notificationsEnabled) return; // Check if notifications are enabled
         if (document.hidden && Notification.permission === "granted") {
             new Notification(title, { body, icon });
         }
@@ -222,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsBtn.addEventListener('click', () => {
         profileNicknameInput.value = state.nickname;
         profileIconInput.value = state.icon;
+        notificationToggle.checked = state.notificationsEnabled; // Ensure toggle reflects current state
         if (state.role === 'Owner') {
             ownerSettings.style.display = 'block';
             adminUserSelect.innerHTML = Object.keys(state.allUsers).map(u => `<option value="${u}">${u}</option>`).join('');
@@ -233,6 +245,14 @@ document.addEventListener('DOMContentLoaded', () => {
     createPollBtn.addEventListener('click', () => toggleModal(pollModal, true));
     closePollBtn.addEventListener('click', () => toggleModal(pollModal, false));
     adminUserSelect.addEventListener('change', populateAdminForm);
+
+    notificationToggle.addEventListener('change', () => {
+        state.notificationsEnabled = notificationToggle.checked;
+        localStorage.setItem('notificationsEnabled', state.notificationsEnabled);
+        if (state.notificationsEnabled && Notification.permission !== 'granted') {
+            requestNotificationPermission();
+        }
+    });
 
     addChannelBtn.addEventListener('click', () => {
         const channelName = prompt('Enter new channel name:');
@@ -291,7 +311,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
         showPage('chat');
-        requestNotificationPermission(); // Ask for permission on join
+        if (state.notificationsEnabled) {
+            requestNotificationPermission(); 
+        }
         state.allUsers = data.allUsers;
         state.roles = data.roles;
         state.nickname = data.currentUser.nickname;
@@ -315,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('new-message', ({ channel, message }) => {
         renderMessage(message, channel);
-        // Show notification if the message is not from the current user and is in the current channel
         if (message.author !== state.username && channel === state.currentChannel) {
             showNotification(`${message.nickname || message.author} says:`, message.content, message.icon);
         }
@@ -337,5 +358,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Initial Load ---
+    // Load notification preference from localStorage
+    const savedNotificationPref = localStorage.getItem('notificationsEnabled');
+    if (savedNotificationPref !== null) {
+        state.notificationsEnabled = savedNotificationPref === 'true';
+    }
+    notificationToggle.checked = state.notificationsEnabled;
+    
     showPage('joinCode');
 });
