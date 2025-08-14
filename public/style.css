@@ -1,29 +1,46 @@
-/* style.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer components {
-    .page {
-        @apply w-full h-full;
-    }
-    .form-input {
-        @apply w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
-    }
-    .btn-primary {
-        @apply w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300;
-    }
-    .tab-btn {
-        @apply w-1/2 py-2 text-center font-semibold text-gray-500 cursor-pointer;
-    }
-    .tab-btn.active {
-        @apply text-blue-600 border-b-2 border-blue-600;
-    }
-    /* Add other custom component styles here */
+/* Custom scrollbar for the chat window */
+#chat-window::-webkit-scrollbar { 
+    width: 8px; 
 }
 
-/* You can add any other global styles or overrides here */
-body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+#chat-window::-webkit-scrollbar-track { 
+    background: transparent; 
 }
+
+#chat-window::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* cool-gray-300 */
+  border-radius: 20px;
+  border: 3px solid transparent; /* Makes the thumb look thinner */
+  background-clip: content-box;
+}
+
+.dark #chat-window::-webkit-scrollbar-thumb {
+    background-color: #4b5563; /* gray-600 */
+}
+
+/* Styling for the blurred background image */
+#chat-background {
+    background-size: cover;
+    background-position: center;
+    filter: blur(4px);
+    transform: scale(1.1); /* Prevents harsh edges from the blur */
+}
+
+/* Page visibility classes */
+.page { 
+    display: none; 
+    width: 100%;
+    height: 100%;
+}
+.page.active { 
+    display: flex; 
+}
+
+/* Channel link styling */
+.channel-link.active {
+    background-color: #dbeafe; /* blue-100 */
+}
+.dark .channel-link.active {
+    background-color: #1e40af; /* blue-800 */
+}
+
