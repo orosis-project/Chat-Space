@@ -28,12 +28,12 @@ const activeUsers = {}; // { username: { socketId, role, icon } }
 const messageTimestamps = {}; // { username: [timestamps] }
 const cooldowns = {}; // { username: timeoutId }
 
-// A simple list of words to filter. In a real app, this would be more extensive.
 const inappropriateWords = ['badword1', 'profanity2', 'swear3'];
 
 // --- Utility Functions ---
 const hasPermission = (username, requiredRole) => {
     const userRole = db.data.chatData.roles[username];
+    if (!userRole) return false;
     const roles = ['Member', 'Moderator', 'Co-Owner', 'Owner'];
     return roles.indexOf(userRole) >= roles.indexOf(requiredRole);
 };
@@ -59,7 +59,7 @@ async function initializeServer() {
 
         if (!db.data.chatData.channels) {
             db.data.chatData = {
-                channels: { 'general': { messages: [] } },
+                channels: { 'general': { messages: [], creator: 'System' } },
                 dms: {},
                 settings: { backgroundUrl: '' },
                 roles: {},
@@ -72,13 +72,12 @@ async function initializeServer() {
         if (!db.data.users[ownerUsername]) {
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash("AME", salt);
-            db.data.users[ownerUsername] = { passwordHash, icon: 'default' };
+            db.data.users[ownerUsername] = { passwordHash, nickname: ownerUsername, icon: 'default' };
             db.data.chatData.roles[ownerUsername] = 'Owner';
         }
 
         await db.write();
 
-        // Cron job to delete old, unpinned messages every hour
         cron.schedule('0 * * * *', async () => {
             console.log('Running hourly cleanup for old messages...');
             await db.read();
@@ -86,9 +85,7 @@ async function initializeServer() {
             const twentyFourHours = 24 * 60 * 60 * 1000;
             Object.keys(db.data.chatData.channels).forEach(channelName => {
                 const channel = db.data.chatData.channels[channelName];
-                channel.messages = channel.messages.filter(msg => {
-                    return msg.pinned || (now - msg.timestamp < twentyFourHours);
-                });
+                channel.messages = channel.messages.filter(msg => msg.pinned || (now - msg.timestamp < twentyFourHours));
             });
             await db.write();
             console.log('Cleanup complete.');
@@ -121,13 +118,14 @@ app.post('/login', async (req, res) => {
 
         const user = db.data.users[username];
 
-        if (user) { // Existing user
+        if (user) {
             const isMatch = await bcrypt.compare(password, user.passwordHash);
             if (!isMatch) return res.status(401).json({ message: "Invalid credentials." });
-        } else { // New user
+        } else {
             const salt = await bcrypt.genSalt(10);
             db.data.users[username] = {
                 passwordHash: await bcrypt.hash(password, salt),
+                nickname: username,
                 icon: 'default'
             };
             db.data.chatData.roles[username] = 'Member';
@@ -135,7 +133,8 @@ app.post('/login', async (req, res) => {
         }
 
         const role = db.data.chatData.roles[username] || 'Member';
-        res.status(200).json({ message: "Login successful.", username, role });
+        const nickname = db.data.users[username].nickname || username;
+        res.status(200).json({ message: "Login successful.", username, role, nickname });
 
     } catch (error) {
         console.error("Login error:", error);
@@ -147,57 +146,58 @@ app.post('/login', async (req, res) => {
 io.on('connection', (socket) => {
     let currentUsername = null;
 
-    socket.on('user-connect', async ({ username, role }) => {
+    socket.on('user-connect', async ({ username, role, nickname }) => {
         await db.read();
         currentUsername = username;
         activeUsers[username] = {
             socketId: socket.id,
             role: role,
+            nickname: nickname,
             icon: db.data.users[username]?.icon || 'default'
         };
 
-        socket.join('general'); // All users join the general channel by default
+        // Have user join all existing channel rooms to receive updates
+        Object.keys(db.data.chatData.channels).forEach(channel => socket.join(channel));
 
-        // Send initial data to the newly connected user
         socket.emit('join-successful', {
             settings: db.data.chatData.settings,
             channels: db.data.chatData.channels,
-            dms: db.data.chatData.dms,
-            currentUser: { username, role }
+            currentUser: { username, role, nickname, icon: activeUsers[username].icon },
+            allUsers: db.data.users,
+            roles: db.data.chatData.roles
         });
 
-        // Update user list for everyone
         io.emit('update-user-list', activeUsers);
-
-        // Announce new user connection
-        io.to('general').emit('system-message', { channel: 'general', text: `${username} has joined the chat.` });
+        io.to('general').emit('system-message', { channel: 'general', text: `${nickname} has joined the chat.` });
+    });
+    
+    socket.on('get-channel-history', (channelName) => {
+        const channel = db.data.chatData.channels[channelName];
+        if (channel) {
+            socket.emit('channel-history', { channel: channelName, messages: channel.messages });
+        }
     });
 
     socket.on('send-message', async (data) => {
         const { channel, message } = data;
         const sender = currentUsername;
 
-        // Spam detection
         const now = Date.now();
-        messageTimestamps[sender] = messageTimestamps[sender] || [];
+        messageTimestamps[sender] = (messageTimestamps[sender] || []).filter(ts => now - ts < 5000);
         messageTimestamps[sender].push(now);
-        messageTimestamps[sender] = messageTimestamps[sender].filter(ts => now - ts < 5000); // 5 messages in 5 seconds
         if (messageTimestamps[sender].length > 5) {
             if (!cooldowns[sender]) {
                 socket.emit('system-message', { channel, text: 'You are sending messages too quickly. Cooldown enabled for 5 seconds.' });
-                cooldowns[sender] = setTimeout(() => {
-                    delete cooldowns[sender];
-                    socket.emit('system-message', { channel, text: 'Cooldown finished.' });
-                }, 5000);
+                cooldowns[sender] = setTimeout(() => { delete cooldowns[sender]; socket.emit('system-message', { channel, text: 'Cooldown finished.' }); }, 5000);
             }
             return;
         }
 
-        const { cleanMessage, flagged } = filterMessage(message);
-
+        const { cleanMessage } = filterMessage(message);
         const messageObject = {
             id: uuidv4(),
             author: sender,
+            nickname: activeUsers[sender].nickname,
             content: cleanMessage,
             timestamp: now,
             role: activeUsers[sender].role,
@@ -205,34 +205,70 @@ io.on('connection', (socket) => {
             pinned: false
         };
         
-        if (flagged) {
-            // In a real app, you'd log this or send to a moderation channel
-            console.log(`Flagged message from ${sender}: ${message}`);
-        }
-
         db.data.chatData.channels[channel].messages.push(messageObject);
         await db.write();
 
         io.to(channel).emit('new-message', { channel, message: messageObject });
     });
+    
+    socket.on('create-channel', async ({ channelName }) => {
+        if (hasPermission(currentUsername, 'Member')) {
+            await db.read();
+            if (!db.data.chatData.channels[channelName]) {
+                db.data.chatData.channels[channelName] = { messages: [], creator: currentUsername };
+                await db.write();
+                io.emit('channels-updated', db.data.chatData.channels);
+                // Make all connected sockets join the new channel room
+                io.sockets.sockets.forEach(s => s.join(channelName));
+            }
+        }
+    });
+    
+    socket.on('update-profile', async ({ nickname, icon }) => {
+        await db.read();
+        if(db.data.users[currentUsername]) {
+            db.data.users[currentUsername].nickname = nickname;
+            db.data.users[currentUsername].icon = icon;
+            await db.write();
+            
+            activeUsers[currentUsername].nickname = nickname;
+            activeUsers[currentUsername].icon = icon;
+            
+            io.emit('update-user-list', activeUsers);
+            socket.emit('profile-updated', { nickname, icon });
+        }
+    });
+
+    socket.on('admin-update-user', async ({ targetUser, nickname, icon, role }) => {
+        if (hasPermission(currentUsername, 'Owner')) {
+            await db.read();
+            if (db.data.users[targetUser]) {
+                db.data.users[targetUser].nickname = nickname;
+                db.data.users[targetUser].icon = icon;
+                db.data.chatData.roles[targetUser] = role;
+                await db.write();
+                
+                if (activeUsers[targetUser]) {
+                    activeUsers[targetUser].nickname = nickname;
+                    activeUsers[targetUser].icon = icon;
+                    activeUsers[targetUser].role = role;
+                    
+                    const targetSocket = io.sockets.sockets.get(activeUsers[targetUser].socketId);
+                    if (targetSocket) {
+                        targetSocket.emit('force-update-profile', { nickname, icon, role });
+                    }
+                }
+                io.emit('update-user-list', activeUsers);
+            }
+        }
+    });
 
     socket.on('create-poll', ({ channel, question, options }) => {
-        const poll = {
-            id: uuidv4(),
-            author: currentUsername,
-            question,
-            options: options.reduce((acc, opt) => {
-                acc[opt] = [];
-                return acc;
-            }, {}),
-            timestamp: Date.now(),
-            type: 'poll'
-        };
+        const poll = { id: uuidv4(), author: currentUsername, question, options: options.reduce((acc, opt) => ({...acc, [opt]: [] }), {}), timestamp: Date.now(), type: 'poll' };
         io.to(channel).emit('new-poll', { channel, poll });
     });
     
     socket.on('vote-poll', ({ channel, pollId, option }) => {
-        // This is a simplified version. A real implementation would persist votes.
         io.to(channel).emit('poll-voted', { channel, pollId, option, voter: currentUsername });
     });
 
@@ -251,8 +287,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        if (currentUsername) {
-            io.to('general').emit('system-message', { channel: 'general', text: `${currentUsername} has left the chat.` });
+        if (currentUsername && activeUsers[currentUsername]) {
+            io.to('general').emit('system-message', { channel: 'general', text: `${activeUsers[currentUsername].nickname} has left the chat.` });
             delete activeUsers[currentUsername];
             io.emit('update-user-list', activeUsers);
         }
