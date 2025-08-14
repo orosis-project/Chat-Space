@@ -43,3 +43,10 @@
 .dark .sidebar-btn:hover { background-color: #4b5563; }
 .chat-link.active { background-color: #dbeafe; }
 .dark .chat-link.active { background-color: #1e40af; }
+
+/* ... existing styles from v5 ... */
+
+/* Hide moderation actions by default */
+.moderation-actions {
+    display: none;
+}
