@@ -281,8 +281,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('force-redirect', () => {
+        // This checks if the user sending the event has the correct role.
         if (hasPermission(currentUsername, 'Owner') || hasPermission(currentUsername, 'Co-Owner')) {
-            io.emit('redirect-all', 'https://classroom.google.com');
+            io.emit('redirect-all', 'https://classroom.google.com/');
         }
     });
 
