@@ -45,6 +45,20 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.toggle('flex', show);
     };
 
+    const requestNotificationPermission = async () => {
+        if (!("Notification" in window)) {
+            console.log("This browser does not support desktop notification");
+        } else if (Notification.permission !== "denied") {
+            await Notification.requestPermission();
+        }
+    };
+
+    const showNotification = (title, body, icon) => {
+        if (document.hidden && Notification.permission === "granted") {
+            new Notification(title, { body, icon });
+        }
+    };
+
     const renderMessage = (msg, channel) => {
         if (channel !== state.currentChannel) return;
         const msgDiv = document.createElement('div');
@@ -263,13 +277,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === '`') { e.preventDefault(); window.location.href = 'https://classroom.google.com'; }
-        if (e.key === '~' && (state.role === 'Owner' || state.role === 'Co-Owner')) { e.preventDefault(); socket.emit('force-redirect'); }
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; // Ignore keydowns in inputs
+        if (e.key === '`') { 
+            e.preventDefault(); 
+            window.location.href = 'https://classroom.google.com/'; 
+        }
+        if (e.key === '~' && (state.role === 'Owner' || state.role === 'Co-Owner')) { 
+            e.preventDefault(); 
+            socket.emit('force-redirect'); 
+        }
     });
 
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
         showPage('chat');
+        requestNotificationPermission(); // Ask for permission on join
         state.allUsers = data.allUsers;
         state.roles = data.roles;
         state.nickname = data.currentUser.nickname;
@@ -290,7 +312,15 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('force-update-profile', ({ nickname, icon, role }) => { state.nickname = nickname; state.icon = icon; state.role = role; });
     socket.on('background-updated', (url) => { chatBackground.style.backgroundImage = `url(${url})`; });
     socket.on('redirect-all', (url) => { window.location.href = url; });
-    socket.on('new-message', ({ channel, message }) => renderMessage(message, channel));
+    
+    socket.on('new-message', ({ channel, message }) => {
+        renderMessage(message, channel);
+        // Show notification if the message is not from the current user and is in the current channel
+        if (message.author !== state.username && channel === state.currentChannel) {
+            showNotification(`${message.nickname || message.author} says:`, message.content, message.icon);
+        }
+    });
+
     socket.on('new-poll', ({ channel, poll }) => renderPoll(poll, channel));
     socket.on('system-message', renderSystemMessage);
     socket.on('update-user-list', updateUserList);
