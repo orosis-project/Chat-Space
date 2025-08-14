@@ -170,8 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         handleJoinAttempt();
     });
-    
-    document.getElementById('join-code-btn').addEventListener('click', handleJoinAttempt);
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
