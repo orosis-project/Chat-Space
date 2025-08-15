@@ -49,18 +49,10 @@ async function initializeServer() {
     db.data.users = db.data.users || {};
     db.data.chatData = db.data.chatData || {};
 
-    // --- Self-Healing Database Structure ---
-    // This block ensures that if the db.json is from an old version, it gets updated safely.
     const defaults = {
         channels: { 'general': { messages: [], private: false, creator: 'System', slowMode: 0 } },
-        dms: {}, 
-        userRelations: {}, 
-        settings: { chatPaused: false }, 
-        roles: {},
-        bans: { normal: [], silent: [] }, 
-        loggedMessages: {}, 
-        auditLog: [], 
-        mutes: {},
+        dms: {}, userRelations: {}, settings: { chatPaused: false }, roles: {},
+        bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [], mutes: {},
         permissions: {
             sendMessage: 'Member', sendGiphy: 'Member', reactToMessage: 'Member',
             replyToMessage: 'Member', editOwnMessage: 'Member', deleteOwnMessage: 'Member',
@@ -74,14 +66,10 @@ async function initializeServer() {
     };
 
     for (const key in defaults) {
-        if (!db.data.chatData[key]) {
-            db.data.chatData[key] = defaults[key];
-        }
+        if (!db.data.chatData[key]) db.data.chatData[key] = defaults[key];
     }
-    // Ensure nested objects exist
     if (!db.data.chatData.bans.normal) db.data.chatData.bans.normal = [];
     if (!db.data.chatData.bans.silent) db.data.chatData.bans.silent = [];
-    // --- End Self-Healing ---
 
     const ownerUsername = "Austin ;)";
     if (!db.data.users[ownerUsername]) {
@@ -100,10 +88,52 @@ async function initializeServer() {
 
 // --- API Routes ---
 app.get('/api/giphy-key', (req, res) => res.json({ apiKey: process.env.GIPHY_API_KEY }));
-// ... login/join routes from v17 ...
+
+app.post('/join', (req, res) => {
+    if (req.body.code === MAIN_CHAT_CODE) res.status(200).json({ message: "Access granted." });
+    else res.status(401).json({ message: "Invalid Join Code." });
+});
+
+app.post('/login', async (req, res) => {
+    await db.read();
+    const { username, password } = req.body;
+    if (db.data.chatData.bans.normal.includes(username)) {
+        return res.status(403).json({ message: "You are banned from this chat." });
+    }
+    const user = db.data.users[username];
+    if (user && user.passwordHash) {
+        if (!await bcrypt.compare(password, user.passwordHash)) return res.status(401).json({ message: "Invalid credentials." });
+    } else if (!user) {
+        const salt = await bcrypt.genSalt(10);
+        db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt), nickname: username, icon: 'default', canCopy: true, hasAgreedToTerms: false, lastSeenRole: null };
+        db.data.chatData.roles[username] = 'Member';
+        await db.write();
+    }
+    const role = db.data.chatData.roles[username] || 'Member';
+    const nickname = db.data.users[username].nickname || username;
+    res.status(200).json({ username, role, nickname });
+});
 
 io.on('connection', (socket) => {
-    // All socket handlers from v17 are here...
+    let currentUsername = null;
+
+    socket.on('user-connect', async ({ username, role, nickname }) => {
+        await db.read();
+        currentUsername = username;
+        const userData = db.data.users[username];
+        activeUsers[username] = { socketId: socket.id, role, nickname, icon: userData?.icon, status: 'online' };
+        
+        socket.emit('join-successful', {
+            allUsers: db.data.users, channels: db.data.chatData.channels, dms: db.data.chatData.dms,
+            roles: db.data.chatData.roles, permissions: db.data.chatData.permissions,
+            userRelations: db.data.chatData.userRelations[username] || { friends: [], blocked: [] },
+            currentUserData: userData
+        });
+
+        io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
+    });
+    
+    // ... all other socket handlers from v18 ...
 });
 
 initializeServer();
