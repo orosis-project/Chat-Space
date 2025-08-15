@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const termsModal = document.getElementById('terms-modal');
     const agreeTermsBtn = document.getElementById('agree-terms-btn');
     const tutorialModal = document.getElementById('tutorial-modal');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
     const chatWindow = document.getElementById('chat-window');
     const userContextMenu = document.getElementById('user-context-menu');
     const emojiPicker = document.getElementById('emoji-picker');
@@ -33,10 +35,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     const replyAuthor = document.getElementById('reply-author');
     const replyPreviewText = document.getElementById('reply-preview-text');
     const cancelReplyBtn = document.getElementById('cancel-reply-btn');
-    const messageForm = document.getElementById('message-form');
-    const messageInput = document.getElementById('message-input');
     const channelTitle = document.getElementById('channel-title');
     const addChannelBtn = document.getElementById('add-channel-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const userDatabaseBtn = document.getElementById('user-database-btn');
+    const statusSelector = document.getElementById('status-selector');
+    const invisibleOption = document.getElementById('invisible-option');
+    const userDbModal = document.getElementById('user-database-modal');
+    const userDbList = document.getElementById('user-db-list');
+    const closeUserDbBtn = document.getElementById('close-user-db-btn');
+    const userEditModal = document.getElementById('user-edit-modal');
+    const reactionPopup = document.getElementById('reaction-popup');
+    const giphyModal = document.getElementById('giphy-modal');
+    const giphyBtn = document.getElementById('giphy-btn');
+    const closeGiphyBtn = document.getElementById('close-giphy-btn');
+    const giphySearchInput = document.getElementById('giphy-search-input');
+    const giphyResultsGrid = document.getElementById('giphy-results-grid');
+    const chatStatusBanner = document.getElementById('chat-status-banner');
+    const gameContainer = document.getElementById('game-container');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const userProfileModal = document.getElementById('user-profile-modal');
+    const muteModal = document.getElementById('mute-modal');
+    const settingsBtn = document.getElementById('settings-btn');
+    const ownerSettingsTabs = document.getElementById('owner-settings-tabs');
+    const profileTabContent = document.getElementById('profile-tab-content');
+    const preferencesTabContent = document.getElementById('preferences-tab-content');
+    const userManagementTabContent = document.getElementById('user-management-tab-content');
+    const permissionsTabContent = document.getElementById('permissions-tab-content');
+    const auditLogTabContent = document.getElementById('audit-log-tab-content');
+    const permissionsList = document.getElementById('permissions-list');
+    const auditLogList = document.getElementById('audit-log-list');
+    const userManagementList = document.getElementById('user-management-list');
 
     // --- Tutorial Content ---
     const TUTORIALS = {
@@ -131,6 +161,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             socket.emit('tutorial-seen', { role: state.role });
             state.currentUserData.lastSeenRole = state.role;
         }
+    });
+
+    messageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        if (state.currentChat.type === 'channel') {
+            socket.emit('send-message', { channel: state.currentChat.id, message, replyingTo: state.replyingTo });
+        } else {
+            socket.emit('send-dm', { recipient: state.currentChat.id, message });
+        }
+        
+        messageInput.value = '';
+        state.replyingTo = null;
+        document.getElementById('reply-preview').classList.add('hidden');
     });
     
     // --- Socket Handlers ---
