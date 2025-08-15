@@ -67,6 +67,88 @@ document.addEventListener('DOMContentLoaded', async () => {
     const permissionsList = document.getElementById('permissions-list');
     const auditLogList = document.getElementById('audit-log-list');
     const userManagementList = document.getElementById('user-management-list');
+    
+    // --- Rendering Functions ---
+
+    const renderMessage = (message) => {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('flex', 'items-start', 'gap-3', 'p-2', 'rounded-lg', 'hover:bg-gray-100', 'dark:hover:bg-gray-800');
+        msgDiv.dataset.messageId = message.id;
+
+        const authorData = state.allUsers[message.author] || {};
+        const icon = authorData.icon || 'https://placehold.co/40x40/7c3aed/ffffff?text=U';
+
+        let contentHTML = marked.parse(message.content);
+
+        msgDiv.innerHTML = `
+            <img src="${icon}" alt="${message.nickname}" class="w-10 h-10 rounded-full">
+            <div class="flex-grow">
+                <div class="flex items-baseline gap-2">
+                    <strong class="dark:text-white">${message.nickname}</strong>
+                    <time class="text-xs text-gray-500 dark:text-gray-400">${new Date(message.timestamp).toLocaleTimeString()}</time>
+                </div>
+                <div class="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">${contentHTML}</div>
+            </div>
+        `;
+        return msgDiv;
+    };
+
+    const renderAllMessages = (messages) => {
+        chatWindow.innerHTML = '';
+        if (messages && messages.length > 0) {
+            messages.forEach(msg => {
+                chatWindow.appendChild(renderMessage(msg));
+            });
+        } else {
+            chatWindow.innerHTML = `<div class="text-center text-gray-500 p-4">No messages yet. Say hello!</div>`;
+        }
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    };
+
+    const renderChannels = () => {
+        channelsList.innerHTML = '';
+        Object.keys(state.channels).forEach(channelId => {
+            const channel = state.channels[channelId];
+            const channelDiv = document.createElement('div');
+            channelDiv.classList.add('px-3', 'py-2', 'rounded-md', 'cursor-pointer', 'hover:bg-gray-300', 'dark:hover:bg-gray-700');
+            if (channelId === state.currentChat.id) {
+                channelDiv.classList.add('bg-blue-500', 'text-white', 'font-semibold');
+            } else {
+                 channelDiv.classList.add('dark:text-gray-300');
+            }
+            channelDiv.textContent = `# ${channelId}`;
+            channelDiv.dataset.channelId = channelId;
+            channelsList.appendChild(channelDiv);
+        });
+    };
+
+    const renderUsers = () => {
+        userListContainer.innerHTML = '';
+        const onlineUsers = Object.keys(state.activeUsers);
+        
+        const categoryDiv = document.createElement('div');
+        categoryDiv.innerHTML = `<h3 class="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase mb-2">Online — ${onlineUsers.length}</h3>`;
+        
+        onlineUsers.forEach(username => {
+            const user = state.activeUsers[username];
+            const userData = state.allUsers[username] || {};
+            const icon = userData.icon || 'https://placehold.co/32x32/7c3aed/ffffff?text=U';
+            
+            const userDiv = document.createElement('div');
+            userDiv.classList.add('flex', 'items-center', 'gap-2', 'p-1.5', 'rounded-md', 'hover:bg-gray-300', 'dark:hover:bg-gray-700', 'cursor-pointer');
+            userDiv.dataset.username = username;
+            
+            userDiv.innerHTML = `
+                <div class="relative">
+                    <img src="${icon}" alt="${user.nickname}" class="w-8 h-8 rounded-full">
+                    <span class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-white dark:border-gray-800"></span>
+                </div>
+                <span class="font-medium text-sm dark:text-gray-200 truncate">${user.nickname}</span>
+            `;
+            categoryDiv.appendChild(userDiv);
+        });
+        userListContainer.appendChild(categoryDiv);
+    };
 
     // --- Tutorial Content ---
     const TUTORIALS = {
@@ -136,13 +218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message);
-
-            // **FIX:** Set the auth object. This data will be sent automatically upon connection.
             socket.auth = { username: data.username, role: data.role, nickname: data.nickname };
-            
-            // **FIX:** Now, connect. The server will receive the auth data and send back 'join-successful'.
             socket.connect();
-
         } catch (error) {
             loginError.textContent = error.message;
         }
@@ -185,22 +262,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
-        // Populate the client state with all the data from the server
         state = { ...state, ...data };
         
-        // Switch from the login page to the main chat interface
         pages.login.classList.replace('active', 'hidden');
         pages.chat.classList.replace('hidden', 'flex');
         
-        // Show terms or tutorial modals if needed
+        // **FIX:** Render the initial UI state
+        renderChannels();
+        renderUsers();
+        renderAllMessages(state.channels[state.currentChat.id]?.messages || []);
+        channelTitle.textContent = `# ${state.currentChat.id}`;
+        
         if (!state.currentUserData.hasAgreedToTerms) {
             termsModal.classList.remove('hidden');
         } else if (state.currentUserData.lastSeenRole !== state.role) {
             showTutorial(state.role);
         }
+    });
 
-        // TODO: Add logic here to render the initial channels, users, and messages
-        // from the 'state' object.
+    socket.on('new-message', ({ channel, message }) => {
+        // Add message to state
+        if (state.channels[channel]) {
+            state.channels[channel].messages.push(message);
+        }
+        // If we're in the channel, render the new message
+        if (channel === state.currentChat.id) {
+            chatWindow.appendChild(renderMessage(message));
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    });
+
+    socket.on('update-user-list', ({ activeUsers, allUsersData }) => {
+        state.activeUsers = activeUsers;
+        state.allUsers = { ...state.allUsers, ...allUsersData }; // Merge user data
+        renderUsers();
     });
 
     socket.on('connect_error', (err) => {
