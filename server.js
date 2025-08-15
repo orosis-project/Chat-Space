@@ -117,28 +117,67 @@ app.post('/login', async (req, res) => {
     res.status(200).json({ username, role, nickname });
 });
 
-io.on('connection', (socket) => {
-    let currentUsername = null;
+io.on('connection', async (socket) => {
+    // Get user details from the auth object sent on connection
+    const { username, role, nickname } = socket.handshake.auth;
 
-    socket.on('user-connect', async ({ username, role, nickname }) => {
+    if (!username) {
+        console.log("A user connected without auth data. Disconnecting.");
+        return socket.disconnect();
+    }
+
+    const currentUsername = username;
+    let userNickname = nickname;
+
+    try {
         await db.read();
-        currentUsername = username;
-        const userData = db.data.users[username];
-        activeUsers[username] = { socketId: socket.id, role, nickname, icon: userData?.icon, status: 'online' };
+        const userData = db.data.users[currentUsername];
+        if (!userData) {
+            console.log(`User ${currentUsername} not found in DB. Disconnecting.`);
+            return socket.disconnect();
+        }
+        userNickname = userData.nickname || nickname;
+
+        activeUsers[currentUsername] = { socketId: socket.id, role, nickname: userNickname, icon: userData?.icon, status: 'online' };
         
-        socket.emit('join-successful', {
-            allUsers: db.data.users, channels: db.data.chatData.channels, dms: db.data.chatData.dms,
-            roles: db.data.chatData.roles, permissions: db.data.chatData.permissions,
-            userRelations: db.data.chatData.userRelations[username] || { friends: [], blocked: [] },
-            currentUserData: userData
+        // Add the user to all channel rooms so they can receive messages
+        Object.keys(db.data.chatData.channels).forEach(channelId => {
+            socket.join(channelId);
         });
 
+        // Send all initial data to the newly connected client
+        socket.emit('join-successful', {
+            allUsers: db.data.users, 
+            channels: db.data.chatData.channels, 
+            dms: db.data.chatData.dms,
+            roles: db.data.chatData.roles, 
+            permissions: db.data.chatData.permissions,
+            userRelations: db.data.chatData.userRelations[currentUsername] || { friends: [], blocked: [] },
+            currentUserData: userData,
+            username: currentUsername,
+            role: db.data.chatData.roles[currentUsername],
+            nickname: userNickname,
+            icon: userData.icon
+        });
+
+        // Notify all other clients that the user list has been updated
         io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
-    });
+
+    } catch (error) {
+        console.error("Error during user connection setup:", error);
+        return socket.disconnect();
+    }
     
     socket.on('disconnect', () => {
         if (currentUsername) {
+            console.log(`${currentUsername} disconnected.`);
             delete activeUsers[currentUsername];
+            // Clean up typing indicators on disconnect
+            Object.keys(activeTypers).forEach(channel => {
+                if (activeTypers[channel] && activeTypers[channel].delete(userNickname)) {
+                    io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
+                }
+            });
             io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
         }
     });
