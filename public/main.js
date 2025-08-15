@@ -76,7 +76,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         msgDiv.dataset.messageId = message.id;
 
         const authorData = state.allUsers[message.author] || {};
-        const icon = authorData.icon || 'https://placehold.co/40x40/7c3aed/ffffff?text=U';
+        // **FIX:** Use a working placeholder URL
+        const icon = authorData.icon === 'default' || !authorData.icon 
+            ? `https://placehold.co/40x40/7c3aed/ffffff?text=${message.nickname.charAt(0).toUpperCase()}` 
+            : authorData.icon;
 
         let contentHTML = marked.parse(message.content);
 
@@ -110,7 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         Object.keys(state.channels).forEach(channelId => {
             const channel = state.channels[channelId];
             const channelDiv = document.createElement('div');
-            channelDiv.classList.add('px-3', 'py-2', 'rounded-md', 'cursor-pointer', 'hover:bg-gray-300', 'dark:hover:bg-gray-700');
+            channelDiv.classList.add('px-3', 'py-2', 'rounded-md', 'cursor-pointer', 'hover:bg-gray-300', 'dark:hover:bg-gray-700', 'transition-colors', 'duration-150');
             if (channelId === state.currentChat.id) {
                 channelDiv.classList.add('bg-blue-500', 'text-white', 'font-semibold');
             } else {
@@ -132,7 +135,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         onlineUsers.forEach(username => {
             const user = state.activeUsers[username];
             const userData = state.allUsers[username] || {};
-            const icon = userData.icon || 'https://placehold.co/32x32/7c3aed/ffffff?text=U';
+            // **FIX:** Use a working placeholder URL
+            const icon = userData.icon === 'default' || !userData.icon 
+                ? `https://placehold.co/32x32/7c3aed/ffffff?text=${user.nickname.charAt(0).toUpperCase()}`
+                : userData.icon;
             
             const userDiv = document.createElement('div');
             userDiv.classList.add('flex', 'items-center', 'gap-2', 'p-1.5', 'rounded-md', 'hover:bg-gray-300', 'dark:hover:bg-gray-700', 'cursor-pointer');
@@ -260,6 +266,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('reply-preview').classList.add('hidden');
     });
     
+    // **NEW:** Add Branch button handler
+    addChannelBtn.addEventListener('click', () => {
+        const channelName = prompt("Enter a name for the new branch:");
+        if (channelName && channelName.trim()) {
+            socket.emit('create-channel', { channelName: channelName.trim() });
+        }
+    });
+
+    // **NEW:** Channel click handler
+    channelsList.addEventListener('click', (e) => {
+        const channelDiv = e.target.closest('[data-channel-id]');
+        if (channelDiv) {
+            const channelId = channelDiv.dataset.channelId;
+            if (channelId !== state.currentChat.id) {
+                state.currentChat = { type: 'channel', id: channelId };
+                channelTitle.textContent = `# ${channelId}`;
+                renderChannels(); // Re-render to update active highlight
+                renderAllMessages(state.channels[channelId]?.messages || []);
+            }
+        }
+    });
+
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
         state = { ...state, ...data };
@@ -267,7 +295,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         pages.login.classList.replace('active', 'hidden');
         pages.chat.classList.replace('hidden', 'flex');
         
-        // **FIX:** Render the initial UI state
         renderChannels();
         renderUsers();
         renderAllMessages(state.channels[state.currentChat.id]?.messages || []);
@@ -281,11 +308,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     socket.on('new-message', ({ channel, message }) => {
-        // Add message to state
         if (state.channels[channel]) {
             state.channels[channel].messages.push(message);
         }
-        // If we're in the channel, render the new message
         if (channel === state.currentChat.id) {
             chatWindow.appendChild(renderMessage(message));
             chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -294,8 +319,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     socket.on('update-user-list', ({ activeUsers, allUsersData }) => {
         state.activeUsers = activeUsers;
-        state.allUsers = { ...state.allUsers, ...allUsersData }; // Merge user data
+        state.allUsers = { ...state.allUsers, ...allUsersData };
         renderUsers();
+    });
+
+    // **NEW:** Handle channel updates from server
+    socket.on('channels-updated', (channels) => {
+        state.channels = channels;
+        renderChannels();
+    });
+
+    socket.on('system-message', ({ text, type = 'error' }) => {
+        // You can create a more sophisticated notification system
+        alert(text); 
     });
 
     socket.on('connect_error', (err) => {
