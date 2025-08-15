@@ -24,11 +24,24 @@ const MAIN_CHAT_CODE = "HMS";
 const activeUsers = {}; 
 const ROLES = ['Member', 'Moderator', 'Co-Owner', 'Owner'];
 
-const hasPermission = (username, action) => {
-    const userRole = db.data.chatData.roles[username];
-    const requiredRole = db.data.chatData.permissions[action];
+const hasPermission = (username, action, rolesData, permissionsData) => {
+    const userRole = rolesData[username];
+    const requiredRole = permissionsData[action];
     if (!userRole || !requiredRole) return false;
     return ROLES.indexOf(userRole) >= ROLES.indexOf(requiredRole);
+};
+
+const canActOn = (actorUsername, targetUsername, rolesData) => {
+    const actorRoleIndex = ROLES.indexOf(rolesData[actorUsername]);
+    const targetRoleIndex = ROLES.indexOf(rolesData[targetUsername]);
+    if (targetRoleIndex === -1) return true;
+    return actorRoleIndex > targetRoleIndex;
+};
+
+const logAuditEvent = async (actor, action, details) => {
+    db.data.chatData.auditLog.unshift({ timestamp: Date.now(), actor, action, details });
+    if (db.data.chatData.auditLog.length > 200) db.data.chatData.auditLog.pop();
+    await db.write();
 };
 
 async function initializeServer() {
@@ -37,18 +50,14 @@ async function initializeServer() {
     db.data.chatData = {
         channels: { 'general': { messages: [], private: false, creator: 'System', slowMode: 0 } },
         dms: {}, userRelations: {}, settings: { chatPaused: false }, roles: {},
-        bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [],
+        bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [], mutes: {},
         permissions: {
-            // Social & Interaction
             sendMessage: 'Member', sendGiphy: 'Member', reactToMessage: 'Member',
             replyToMessage: 'Member', editOwnMessage: 'Member', deleteOwnMessage: 'Member',
             startDM: 'Member', addFriend: 'Member', blockUser: 'Member',
-            // Branch Management
             createBranch: 'Member', createPrivateBranch: 'Moderator', inviteToBranch: 'Moderator',
-            // Moderation
             deleteAnyMessage: 'Moderator', viewUserProfile: 'Moderator', muteUser: 'Moderator',
             kickUser: 'Moderator', banUser: 'Moderator', silentBanUser: 'Moderator',
-            // Owner Controls
             clearChat: 'Owner', pauseChat: 'Owner', setSlowMode: 'Co-Owner',
             manageUsers: 'Co-Owner', viewAuditLog: 'Owner', viewPermissions: 'Owner', setPermissions: 'Owner'
         },
@@ -61,7 +70,11 @@ async function initializeServer() {
         db.data.users[ownerUsername] = { passwordHash: await bcrypt.hash("AME", salt), nickname: "Austin ;)", icon: 'default', canCopy: true, hasAgreedToTerms: true, lastSeenRole: 'Owner' };
         db.data.chatData.roles[ownerUsername] = 'Owner';
     }
-    // ... Heim Bot initialization
+    if (!db.data.users["Heim Bot"]) {
+        db.data.users["Heim Bot"] = { nickname: "Heim Bot", icon: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_2/v1700469524/williamsvillek12org/zil1pj6ifch1f4h14oid/8HEIMMIDDLE.png', canCopy: true };
+        db.data.chatData.roles["Heim Bot"] = 'Bot';
+    }
+
     await db.write();
     server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
 }
@@ -89,25 +102,7 @@ io.on('connection', (socket) => {
         io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
     });
     
-    socket.on('accept-terms', async () => {
-        if (currentUsername) {
-            db.data.users[currentUsername].hasAgreedToTerms = true;
-            await db.write();
-        }
-    });
-
-    socket.on('tutorial-seen', async ({ role }) => {
-        if (currentUsername) {
-            db.data.users[currentUsername].lastSeenRole = role;
-            await db.write();
-        }
-    });
-
-    // ... all other socket handlers, now with permission checks, e.g.:
-    socket.on('send-message', async ({ channel, message }) => {
-        if (!hasPermission(currentUsername, 'sendMessage')) return;
-        // ... rest of logic
-    });
+    // ... all other socket handlers from v16 ...
 });
 
 initializeServer();
