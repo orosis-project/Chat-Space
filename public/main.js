@@ -136,9 +136,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message);
-            socket.auth = { username };
+
+            // **FIX:** Set the auth object. This data will be sent automatically upon connection.
+            socket.auth = { username: data.username, role: data.role, nickname: data.nickname };
+            
+            // **FIX:** Now, connect. The server will receive the auth data and send back 'join-successful'.
             socket.connect();
-            socket.emit('user-connect', { username: data.username, role: data.role, nickname: data.nickname });
+
         } catch (error) {
             loginError.textContent = error.message;
         }
@@ -181,15 +185,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
-        state = { ...state, ...data.currentUser, ...data };
+        // Populate the client state with all the data from the server
+        state = { ...state, ...data };
         
+        // Switch from the login page to the main chat interface
         pages.login.classList.replace('active', 'hidden');
         pages.chat.classList.replace('hidden', 'flex');
         
+        // Show terms or tutorial modals if needed
         if (!state.currentUserData.hasAgreedToTerms) {
             termsModal.classList.remove('hidden');
         } else if (state.currentUserData.lastSeenRole !== state.role) {
             showTutorial(state.role);
         }
+
+        // TODO: Add logic here to render the initial channels, users, and messages
+        // from the 'state' object.
+    });
+
+    socket.on('connect_error', (err) => {
+        console.error("Connection failed:", err.message);
+        const loginError = document.getElementById('login-error');
+        loginError.textContent = "Could not connect to the server.";
     });
 });
