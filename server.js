@@ -42,51 +42,60 @@ const canActOn = (actorUsername, targetUsername, rolesData) => {
 };
 
 const logAuditEvent = async (actor, action, details) => {
-    db.data.chatData.auditLog.unshift({ timestamp: Date.now(), actor, action, details });
-    if (db.data.chatData.auditLog.length > 200) db.data.chatData.auditLog.pop();
-    await db.write();
+    try {
+        db.data.chatData.auditLog.unshift({ timestamp: Date.now(), actor, action, details });
+        if (db.data.chatData.auditLog.length > 200) db.data.chatData.auditLog.pop();
+        await db.write();
+    } catch (e) {
+        console.error("Failed to log audit event:", e);
+    }
 };
 
 async function initializeServer() {
-    await db.read();
-    db.data.users = db.data.users || {};
-    db.data.chatData = db.data.chatData || {};
+    try {
+        await db.read();
+        db.data.users = db.data.users || {};
+        db.data.chatData = db.data.chatData || {};
 
-    const defaults = {
-        channels: { 'general': { messages: [], private: false, creator: 'System', slowMode: 0 } },
-        dms: {}, userRelations: {}, settings: { chatPaused: false }, roles: {},
-        bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [], mutes: {},
-        permissions: {
-            sendMessage: 'Member', sendGiphy: 'Member', reactToMessage: 'Member',
-            replyToMessage: 'Member', editOwnMessage: 'Member', deleteOwnMessage: 'Member',
-            startDM: 'Member', addFriend: 'Member', blockUser: 'Member',
-            createBranch: 'Member', createPrivateBranch: 'Moderator', inviteToBranch: 'Moderator',
-            deleteAnyMessage: 'Moderator', viewUserProfile: 'Moderator', muteUser: 'Moderator',
-            kickUser: 'Moderator', banUser: 'Moderator', silentBanUser: 'Moderator',
-            clearChat: 'Owner', pauseChat: 'Owner', setSlowMode: 'Co-Owner',
-            manageUsers: 'Co-Owner', viewAuditLog: 'Owner', viewPermissions: 'Owner', setPermissions: 'Owner'
+        const defaults = {
+            channels: { 'general': { messages: [], private: false, creator: 'System', slowMode: 0 } },
+            dms: {}, userRelations: {}, settings: { chatPaused: false }, roles: {},
+            bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [], mutes: {},
+            permissions: {
+                sendMessage: 'Member', sendGiphy: 'Member', reactToMessage: 'Member',
+                replyToMessage: 'Member', editOwnMessage: 'Member', deleteOwnMessage: 'Member',
+                startDM: 'Member', addFriend: 'Member', blockUser: 'Member',
+                createBranch: 'Member', createPrivateBranch: 'Moderator', inviteToBranch: 'Moderator',
+                deleteAnyMessage: 'Moderator', viewUserProfile: 'Moderator', muteUser: 'Moderator',
+                kickUser: 'Moderator', banUser: 'Moderator', silentBanUser: 'Moderator',
+                clearChat: 'Owner', pauseChat: 'Owner', setSlowMode: 'Co-Owner',
+                manageUsers: 'Co-Owner', viewAuditLog: 'Owner', viewPermissions: 'Owner', setPermissions: 'Owner'
+            }
+        };
+
+        for (const key in defaults) {
+            if (!db.data.chatData[key]) db.data.chatData[key] = defaults[key];
         }
-    };
+        if (!db.data.chatData.bans.normal) db.data.chatData.bans.normal = [];
+        if (!db.data.chatData.bans.silent) db.data.chatData.bans.silent = [];
 
-    for (const key in defaults) {
-        if (!db.data.chatData[key]) db.data.chatData[key] = defaults[key];
-    }
-    if (!db.data.chatData.bans.normal) db.data.chatData.bans.normal = [];
-    if (!db.data.chatData.bans.silent) db.data.chatData.bans.silent = [];
+        const ownerUsername = "Austin ;)";
+        if (!db.data.users[ownerUsername]) {
+            const salt = await bcrypt.genSalt(10);
+            db.data.users[ownerUsername] = { passwordHash: await bcrypt.hash("AME", salt), nickname: "Austin ;)", icon: 'default', canCopy: true, hasAgreedToTerms: true, lastSeenRole: 'Owner' };
+            db.data.chatData.roles[ownerUsername] = 'Owner';
+        }
+        if (!db.data.users["Heim Bot"]) {
+            db.data.users["Heim Bot"] = { nickname: "Heim Bot", icon: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_2/v1700469524/williamsvillek12org/zil1pj6ifch1f4h14oid/8HEIMMIDDLE.png', canCopy: true };
+            db.data.chatData.roles["Heim Bot"] = 'Bot';
+        }
 
-    const ownerUsername = "Austin ;)";
-    if (!db.data.users[ownerUsername]) {
-        const salt = await bcrypt.genSalt(10);
-        db.data.users[ownerUsername] = { passwordHash: await bcrypt.hash("AME", salt), nickname: "Austin ;)", icon: 'default', canCopy: true, hasAgreedToTerms: true, lastSeenRole: 'Owner' };
-        db.data.chatData.roles[ownerUsername] = 'Owner';
+        await db.write();
+        server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
+    } catch (error) {
+        console.error("FATAL: Could not initialize server.", error);
+        process.exit(1);
     }
-    if (!db.data.users["Heim Bot"]) {
-        db.data.users["Heim Bot"] = { nickname: "Heim Bot", icon: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_2/v1700469524/williamsvillek12org/zil1pj6ifch1f4h14oid/8HEIMMIDDLE.png', canCopy: true };
-        db.data.chatData.roles["Heim Bot"] = 'Bot';
-    }
-
-    await db.write();
-    server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
 }
 
 // --- API Routes ---
@@ -118,11 +127,9 @@ app.post('/login', async (req, res) => {
 });
 
 io.on('connection', async (socket) => {
-    // Get user details from the auth object sent on connection
     const { username, role, nickname } = socket.handshake.auth;
 
     if (!username) {
-        console.log("A user connected without auth data. Disconnecting.");
         return socket.disconnect();
     }
 
@@ -133,19 +140,16 @@ io.on('connection', async (socket) => {
         await db.read();
         const userData = db.data.users[currentUsername];
         if (!userData) {
-            console.log(`User ${currentUsername} not found in DB. Disconnecting.`);
             return socket.disconnect();
         }
         userNickname = userData.nickname || nickname;
 
         activeUsers[currentUsername] = { socketId: socket.id, role, nickname: userNickname, icon: userData?.icon, status: 'online' };
         
-        // Add the user to all channel rooms so they can receive messages
         Object.keys(db.data.chatData.channels).forEach(channelId => {
             socket.join(channelId);
         });
 
-        // Send all initial data to the newly connected client
         socket.emit('join-successful', {
             allUsers: db.data.users, 
             channels: db.data.chatData.channels, 
@@ -160,7 +164,6 @@ io.on('connection', async (socket) => {
             icon: userData.icon
         });
 
-        // Notify all other clients that the user list has been updated
         io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
 
     } catch (error) {
@@ -170,9 +173,7 @@ io.on('connection', async (socket) => {
     
     socket.on('disconnect', () => {
         if (currentUsername) {
-            console.log(`${currentUsername} disconnected.`);
             delete activeUsers[currentUsername];
-            // Clean up typing indicators on disconnect
             Object.keys(activeTypers).forEach(channel => {
                 if (activeTypers[channel] && activeTypers[channel].delete(userNickname)) {
                     io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
@@ -205,6 +206,30 @@ io.on('connection', async (socket) => {
         channels[channel].messages.push(messageObject);
         await db.write();
         io.to(channel).emit('new-message', { channel, message: messageObject });
+    });
+
+    // **NEW:** Handle channel creation
+    socket.on('create-channel', async ({ channelName }) => {
+        const { roles, permissions, channels } = db.data.chatData;
+        if (!hasPermission(currentUsername, 'createBranch', roles, permissions)) {
+            return socket.emit('system-message', { text: "You don't have permission to create branches." });
+        }
+        if (channels[channelName]) {
+            return socket.emit('system-message', { text: `A branch named #${channelName} already exists.` });
+        }
+        
+        channels[channelName] = { messages: [], private: false, creator: currentUsername, slowMode: 0 };
+        await db.write();
+        
+        // Notify all clients about the new channel list
+        io.emit('channels-updated', channels);
+        
+        // Automatically make the creator and all other connected users join the new room
+        io.sockets.sockets.forEach((sock) => {
+            sock.join(channelName);
+        });
+
+        await logAuditEvent(currentUsername, 'Created Branch', `#${channelName}`);
     });
 
     socket.on('edit-message', async ({ channel, messageId, newContent }) => {
