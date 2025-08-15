@@ -23,7 +23,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const termsModal = document.getElementById('terms-modal');
     const agreeTermsBtn = document.getElementById('agree-terms-btn');
     const tutorialModal = document.getElementById('tutorial-modal');
-    // ... all other element selectors from v18 ...
+    const chatWindow = document.getElementById('chat-window');
+    const userContextMenu = document.getElementById('user-context-menu');
+    const emojiPicker = document.getElementById('emoji-picker');
+    const dmList = document.getElementById('dm-list');
+    const channelsList = document.getElementById('channels-list');
+    const userListContainer = document.getElementById('user-list-container');
+    const replyPreview = document.getElementById('reply-preview');
+    const replyAuthor = document.getElementById('reply-author');
+    const replyPreviewText = document.getElementById('reply-preview-text');
+    const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const channelTitle = document.getElementById('channel-title');
+    const addChannelBtn = document.getElementById('add-channel-btn');
 
     // --- Tutorial Content ---
     const TUTORIALS = {
@@ -63,20 +76,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- Event Handlers ---
+    const handleJoinAttempt = async () => {
+        const joinError = document.getElementById('join-error');
+        joinError.textContent = '';
+        const code = document.getElementById('join-code-input').value;
+        try {
+            const response = await fetch('/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+            pages.joinCode.classList.replace('active', 'hidden');
+            pages.login.classList.replace('hidden', 'active');
+        } catch (error) {
+            joinError.textContent = error.message;
+        }
+    };
+
     joinCodeForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        // ... join code logic from v18 ...
+        handleJoinAttempt();
     });
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        // ... login logic from v18 ...
+        const loginError = document.getElementById('login-error');
+        loginError.textContent = '';
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
+        try {
+            const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+            socket.auth = { username };
+            socket.connect();
+            socket.emit('user-connect', { username: data.username, role: data.role, nickname: data.nickname });
+        } catch (error) {
+            loginError.textContent = error.message;
+        }
     });
 
     agreeTermsBtn.addEventListener('click', () => {
         socket.emit('accept-terms');
         termsModal.classList.add('hidden');
-        // After agreeing, check if a tutorial for their current role needs to be shown.
         if (state.currentUserData.lastSeenRole !== state.role) {
             showTutorial(state.role);
         }
@@ -89,28 +129,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             tutorialModal.classList.add('hidden');
             socket.emit('tutorial-seen', { role: state.role });
-            state.currentUserData.lastSeenRole = state.role; // Update state locally immediately
+            state.currentUserData.lastSeenRole = state.role;
         }
     });
-    // ... other tutorial button listeners
-
+    
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
-        // This is the critical fix: set the state first, then check for onboarding.
         state = { ...state, ...data.currentUser, ...data };
         
         pages.login.classList.replace('active', 'hidden');
         pages.chat.classList.replace('hidden', 'flex');
         
-        // Now that the state is fully updated, perform the checks.
         if (!state.currentUserData.hasAgreedToTerms) {
             termsModal.classList.remove('hidden');
         } else if (state.currentUserData.lastSeenRole !== state.role) {
             showTutorial(state.role);
         }
-        
-        // ... rest of join logic from v18 ...
     });
-
-    // ... all other socket handlers and functions from v18 ...
 });
