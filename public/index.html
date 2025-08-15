@@ -11,10 +11,13 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 font-sans antialiased overflow-hidden">
+    <!-- Main Application Container -->
     <div id="app-container" class="w-full h-screen relative flex items-center justify-center">
-        <div id="chat-background" class="absolute inset-0 transition-all duration-500"></div>
+        <!-- Background Image -->
+        <div id="chat-background" class="absolute inset-0 transition-all duration-500 bg-cover bg-center"></div>
         
-        <div id="join-code-page" class="page active z-10 flex-col items-center justify-center p-4">
+        <!-- Join Code Page -->
+        <div id="join-code-page" class="page active z-10 flex flex-col items-center justify-center p-4">
              <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg text-center">
                 <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">Chat Space</h1>
                 <p class="text-gray-500 dark:text-gray-300 mb-6">Enter the join code to continue.</p>
@@ -25,7 +28,9 @@
                 </form>
             </div>
         </div>
-        <div id="login-page" class="page hidden z-10 flex-col items-center justify-center p-4">
+
+        <!-- Login Page -->
+        <div id="login-page" class="page hidden z-10 flex flex-col items-center justify-center p-4">
              <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg">
                 <div class="text-center mb-8">
                     <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Login or Signup</h1>
@@ -40,16 +45,24 @@
             </div>
         </div>
 
-        <div id="chat-page" class="page hidden h-full z-10">
-            <aside id="navigation-sidebar" class="w-64 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 flex flex-col">
+        <!-- Main Chat Page -->
+        <div id="chat-page" class="page hidden w-full h-full z-10 flex">
+            <!-- Left Sidebar (Navigation) -->
+            <aside id="navigation-sidebar" class="w-64 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 flex flex-col flex-shrink-0">
+                <!-- Branches Section -->
                 <div class="flex-shrink-0">
-                    <div class="flex justify-between items-center mb-2"><h2 class="text-lg font-bold dark:text-white px-3">Branches</h2><button id="add-channel-btn" class="sidebar-btn"><i class="ri-add-line"></i></button></div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-bold dark:text-white px-3">Branches</h2>
+                        <button id="add-channel-btn" class="sidebar-btn"><i class="ri-add-line"></i></button>
+                    </div>
                     <div id="channels-list" class="space-y-1 overflow-y-auto max-h-48"></div>
                 </div>
+                <!-- Direct Messages Section -->
                 <div class="flex-grow mt-4 pt-4 border-t border-gray-300/50 dark:border-gray-700/50 overflow-y-auto">
                      <h2 class="text-lg font-bold dark:text-white px-3 mb-2">Direct Messages</h2>
                      <div id="dm-list" class="space-y-1"></div>
                 </div>
+                <!-- User Controls Section -->
                 <div class="mt-auto flex-shrink-0 space-y-2">
                     <button id="user-database-btn" class="sidebar-btn-full"><i class="ri-group-line"></i><span>Users</span></button>
                     <button id="settings-btn" class="sidebar-btn-full"><i class="ri-settings-3-line"></i><span>Settings</span></button>
@@ -63,17 +76,19 @@
                 </div>
             </aside>
             
+            <!-- Main Chat Area -->
             <main id="main-chat-area" class="flex-grow flex flex-col bg-white/40 dark:bg-gray-900/40 backdrop-blur-md">
-                <header class="p-4 border-b border-gray-300/50 dark:border-gray-700/50 flex items-center justify-between">
+                <header class="p-4 border-b border-gray-300/50 dark:border-gray-700/50 flex items-center justify-between flex-shrink-0">
                     <h1 id="channel-title" class="text-2xl font-bold dark:text-white"># general</h1>
                 </header>
                 
-                <div id="chat-status-banner" class="hidden p-2 text-center bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100 font-semibold">
+                <div id="chat-status-banner" class="hidden p-2 text-center bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100 font-semibold flex-shrink-0">
                     Chat is currently paused.
                 </div>
 
                 <div id="chat-window" class="flex-grow p-4 overflow-y-auto"></div>
-                <footer class="p-4 border-t border-gray-300/50 dark:border-gray-700/50">
+
+                <footer class="p-4 border-t border-gray-300/50 dark:border-gray-700/50 flex-shrink-0">
                     <div id="game-container" class="hidden mb-2"></div>
                     <div id="typing-indicator" class="h-5 text-sm italic text-gray-600 dark:text-gray-400"></div>
                     <div id="reply-preview" class="hidden items-center justify-between text-sm p-2 mb-2 bg-gray-200 dark:bg-gray-700 rounded-md">
@@ -88,13 +103,15 @@
                 </footer>
             </main>
 
-            <aside id="user-list-sidebar" class="w-60 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 overflow-y-auto">
+            <!-- Right Sidebar (User List) -->
+            <aside id="user-list-sidebar" class="w-60 bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-md p-4 overflow-y-auto flex-shrink-0">
                 <h2 class="text-lg font-bold dark:text-white mb-4">Online Users</h2>
                 <div id="user-list-container"></div>
             </aside>
         </div>
     </div>
     
+    <!-- Modals -->
     <div id="terms-modal" class="modal-container hidden">
         <div class="modal-content max-w-lg">
             <h2 class="text-2xl font-bold mb-4 dark:text-white">Terms of Service & Community Guidelines</h2>
