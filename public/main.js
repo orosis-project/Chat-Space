@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Element Selectors ---
     const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page') };
     const joinCodeForm = document.getElementById('join-code-form');
-    // ... all other element selectors from v16 ...
+    // ... all other element selectors from v17 ...
 
     // --- Event Handlers ---
     const handleJoinAttempt = async () => {
@@ -28,5 +28,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         handleJoinAttempt();
     });
 
-    // ... all other event handlers and socket listeners from v16 ...
+    // ... all other event handlers and socket listeners from v17 ...
 });
