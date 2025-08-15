@@ -23,6 +23,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 const MAIN_CHAT_CODE = "HMS";
 const activeUsers = {}; 
 const ROLES = ['Member', 'Moderator', 'Co-Owner', 'Owner'];
+const activeTypers = {};
+const activeGames = {};
+const lastMessageTimestamps = {};
 
 const hasPermission = (username, action, rolesData, permissionsData) => {
     const userRole = rolesData[username];
@@ -133,7 +136,104 @@ io.on('connection', (socket) => {
         io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
     });
     
-    // ... all other socket handlers from v18 ...
+    socket.on('disconnect', () => {
+        if (currentUsername) {
+            delete activeUsers[currentUsername];
+            io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
+        }
+    });
+
+    socket.on('send-message', async ({ channel, message, replyingTo, type = 'text' }) => {
+        const { roles, permissions, bans, settings, channels } = db.data.chatData;
+        if (!hasPermission(currentUsername, 'sendMessage', roles, permissions)) return;
+        if (bans.silent.includes(currentUsername)) return;
+        if (settings.chatPaused && !hasPermission(currentUsername, 'pauseChat', roles, permissions)) {
+            return socket.emit('system-message', { text: "Chat is currently paused." });
+        }
+        const now = Date.now();
+        const slowMode = channels[channel]?.slowMode || 0;
+        if (now - (lastMessageTimestamps[currentUsername] || 0) < slowMode * 1000) {
+            return socket.emit('system-message', { text: `Slow mode is active. Please wait ${slowMode} seconds.` });
+        }
+        lastMessageTimestamps[currentUsername] = now;
+
+        const messageObject = {
+            id: uuidv4(), author: currentUsername, nickname: activeUsers[currentUsername].nickname,
+            content: message, timestamp: now, icon: activeUsers[currentUsername].icon,
+            pinned: false, reactions: {}, replyingTo: replyingTo || null, type: type
+        };
+        
+        channels[channel].messages.push(messageObject);
+        await db.write();
+        io.to(channel).emit('new-message', { channel, message: messageObject });
+    });
+
+    socket.on('edit-message', async ({ channel, messageId, newContent }) => {
+        const message = db.data.chatData.channels[channel]?.messages.find(m => m.id === messageId);
+        if (message && message.author === currentUsername) {
+            message.content = newContent;
+            message.edited = true;
+            await db.write();
+            io.to(channel).emit('message-updated', { channel, messageId, newContent });
+        }
+    });
+
+    socket.on('delete-message', async ({ channel, messageId }) => {
+        const { roles, permissions, channels } = db.data.chatData;
+        const messages = channels[channel]?.messages;
+        const message = messages?.find(m => m.id === messageId);
+        if (message && (message.author === currentUsername || hasPermission(currentUsername, 'deleteAnyMessage', roles, permissions))) {
+            channels[channel].messages = messages.filter(m => m.id !== messageId);
+            await db.write();
+            io.to(channel).emit('message-deleted', { channel, messageId });
+            await logAuditEvent(currentUsername, 'Deleted Message', `In #${channel}`);
+        }
+    });
+
+    socket.on('start-typing', ({ channel }) => {
+        if (!activeTypers[channel]) activeTypers[channel] = new Set();
+        activeTypers[channel].add(activeUsers[currentUsername]?.nickname || currentUsername);
+        io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
+    });
+    
+    socket.on('stop-typing', ({ channel }) => {
+        if (activeTypers[channel]) {
+            activeTypers[channel].delete(activeUsers[currentUsername]?.nickname || currentUsername);
+            io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
+        }
+    });
+
+    socket.on('mute-user', async ({ targetUsername, durationMinutes }) => {
+        const { roles, permissions } = db.data.chatData;
+        if (hasPermission(currentUsername, 'muteUser', roles, permissions) && canActOn(currentUsername, targetUsername, roles)) {
+            const muteUntil = Date.now() + durationMinutes * 60 * 1000;
+            db.data.chatData.mutes[targetUsername] = muteUntil;
+            await db.write();
+            await logAuditEvent(currentUsername, 'Muted User', `${targetUsername} for ${durationMinutes} min`);
+            io.emit('system-message', { text: `${targetUsername} was muted by ${currentUsername} for ${durationMinutes} minutes.` });
+        }
+    });
+
+    socket.on('start-trivia', async ({ channel }) => {
+        if (activeGames[channel]) return;
+        const questions = [{ q: "What is the capital of France?", a: "Paris" }, { q: "2 + 2 = ?", a: "4" }];
+        activeGames[channel] = { type: 'trivia', questions, current: 0, scores: {} };
+        io.to(channel).emit('game-started', { type: 'trivia', question: questions[0].q });
+    });
+
+    socket.on('game-answer', ({ channel, answer }) => {
+        const game = activeGames[channel];
+        if (game && game.type === 'trivia' && answer.toLowerCase() === game.questions[game.current].a.toLowerCase()) {
+            game.scores[currentUsername] = (game.scores[currentUsername] || 0) + 1;
+            game.current++;
+            if (game.current >= game.questions.length) {
+                io.to(channel).emit('game-over', { scores: game.scores });
+                delete activeGames[channel];
+            } else {
+                io.to(channel).emit('game-update', { question: game.questions[game.current].q, scores: game.scores });
+            }
+        }
+    });
 });
 
 initializeServer();
