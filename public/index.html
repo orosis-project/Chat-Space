@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,245 +8,99 @@
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- FingerprintJS Script -->
     <script>
       const fpPromise = import('https://fpjscdn.net/v3/pwUaaQ43Ak0S6CjsUAsc')
         .then(FingerprintJS => FingerprintJS.load())
     </script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 font-sans antialiased overflow-hidden">
-    <!-- Main Application Container -->
+<body class="bg-gray-100 dark:bg-black font-sans antialiased overflow-hidden">
     <div id="app-container" class="w-full h-screen relative flex items-center justify-center">
-        <!-- Background Image -->
-        <div id="chat-background" class="absolute inset-0 transition-all duration-500 bg-cover bg-center"></div>
+        <div id="chat-background" class="absolute inset-0 transition-all duration-500 bg-cover bg-center opacity-30"></div>
         
-        <!-- Join Code Page -->
         <div id="join-code-page" class="page active z-10 flex flex-col items-center justify-center p-4">
-             <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg text-center">
+             <div class="card text-center">
                 <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">Chat Space</h1>
-                <p class="text-gray-500 dark:text-gray-300 mb-6">Enter the join code to continue.</p>
+                <p class="text-gray-500 dark:text-gray-400 mb-6">Enter the join code to continue.</p>
                 <div id="join-error" class="text-red-500 mb-4 h-5 font-semibold"></div>
                 <form id="join-code-form" class="space-y-4">
-                    <input type="text" id="join-code-input" placeholder="Join Code" class="w-full text-center tracking-widest font-bold text-lg px-4 py-3 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Enter</button>
+                    <input type="text" id="join-code-input" placeholder="Join Code" class="input text-center tracking-widest font-bold text-lg" required>
+                    <button type="submit" class="btn-primary w-full">Enter</button>
                 </form>
             </div>
         </div>
 
-        <!-- Login Page -->
         <div id="login-page" class="page hidden z-10 flex flex-col items-center justify-center p-4">
-             <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg">
+             <div class="card">
                 <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Login or Signup</h1>
-                    <p class="text-gray-500 dark:text-gray-300 mt-2">Create an account or sign in.</p>
+                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Welcome Back</h1>
+                    <p class="text-gray-500 dark:text-gray-400 mt-2">Sign in or request an account.</p>
                 </div>
                 <div id="login-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
                 <form id="login-form" class="space-y-6">
-                    <div class="relative"><i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" id="login-username" placeholder="Username" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required></div>
-                    <div class="relative"><i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="password" id="login-password" placeholder="Password" class="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg" required></div>
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Login / Signup</button>
+                    <div class="relative"><i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" id="login-username" placeholder="Username" class="input pl-12" required></div>
+                    <div class="relative"><i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="password" id="login-password" placeholder="Password" class="input pl-12" required></div>
+                    <button type="submit" class="btn-primary w-full">Login / Request Account</button>
                 </form>
             </div>
         </div>
         
-        <!-- 2FA Verification Page -->
         <div id="two-factor-page" class="page hidden z-10 flex flex-col items-center justify-center p-4">
-             <div class="w-full max-w-sm bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg p-8 rounded-xl shadow-lg text-center">
-                <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Two-Factor Authentication</h1>
-                <p class="text-gray-500 dark:text-gray-300 mb-6">Enter the code from your authenticator app.</p>
+             <div class="card text-center">
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Verification Required</h1>
+                <p class="text-gray-500 dark:text-gray-400 mb-6">Enter the code from your authenticator app.</p>
                 <div id="2fa-error" class="text-red-500 mb-4 h-5 font-semibold"></div>
                 <form id="2fa-form">
-                    <input type="text" id="2fa-code-input" placeholder="6-Digit Code" maxlength="6" class="w-full text-center tracking-[0.5em] font-bold text-2xl px-4 py-3 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                    <button type="submit" class="w-full mt-4 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-md">Verify</button>
+                    <input type="text" id="2fa-code-input" placeholder="6-Digit Code" maxlength="6" class="input text-center tracking-[0.5em] font-bold text-2xl" required>
+                    <button type="submit" class="btn-primary w-full mt-4">Verify</button>
                 </form>
             </div>
         </div>
 
-        <!-- Main Chat Page -->
         <div id="chat-page" class="page hidden w-full h-full z-10 flex">
             <aside id="navigation-sidebar" class="sidebar">
                 <div class="flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-lg font-bold dark:text-white px-3">Branches</h2>
-                        <button id="add-channel-btn" class="sidebar-btn"><i class="ri-add-line"></i></button>
+                        <h2 class="sidebar-title">Branches</h2>
+                        <button id="add-channel-btn" class="sidebar-icon-btn"><i class="ri-add-line"></i></button>
                     </div>
                     <div id="channels-list" class="space-y-1 overflow-y-auto max-h-48"></div>
                 </div>
-                <div class="flex-grow mt-4 pt-4 border-t border-gray-300/50 dark:border-gray-700/50 overflow-y-auto">
-                     <h2 class="text-lg font-bold dark:text-white px-3 mb-2">Direct Messages</h2>
+                <div class="flex-grow mt-4 pt-4 border-t border-gray-200/10 dark:border-gray-800/50 overflow-y-auto">
+                     <h2 class="sidebar-title">Direct Messages</h2>
                      <div id="dm-list" class="space-y-1"></div>
                 </div>
                 <div class="mt-auto flex-shrink-0 space-y-2">
                     <button id="user-database-btn" class="sidebar-btn-full"><i class="ri-group-line"></i><span>Users</span></button>
                     <button id="settings-btn" class="sidebar-btn-full"><i class="ri-settings-3-line"></i><span>Settings</span></button>
-                    <div class="relative">
-                        <select id="status-selector" class="w-full p-2 rounded-lg bg-gray-300 dark:bg-gray-700 dark:text-white">
-                            <option value="online">Online</option>
-                            <option value="busy">Busy</option>
-                            <option value="invisible" id="invisible-option" class="hidden">Invisible</option>
-                        </select>
-                    </div>
                 </div>
             </aside>
-            <main id="main-chat-area" class="flex-grow flex flex-col bg-white/40 dark:bg-gray-900/40 backdrop-blur-md">
-                <header class="p-4 border-b border-gray-300/50 dark:border-gray-700/50 flex items-center justify-between flex-shrink-0">
+            <main id="main-chat-area" class="flex-grow flex flex-col bg-white/5 dark:bg-gray-900/30 backdrop-blur-xl">
+                <header class="header">
                     <div class="flex items-center gap-4">
-                        <button id="menu-toggle-btn" class="md:hidden p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"><i class="ri-menu-line ri-lg"></i></button>
-                        <h1 id="channel-title" class="text-2xl font-bold dark:text-white"># general</h1>
+                        <button id="menu-toggle-btn" class="sidebar-icon-btn md:hidden"><i class="ri-menu-line ri-lg"></i></button>
+                        <h1 id="channel-title" class="text-xl font-bold dark:text-white"># general</h1>
                     </div>
                 </header>
                 <div id="chat-window" class="flex-grow p-4 overflow-y-auto"></div>
-                <footer class="p-4 border-t border-gray-300/50 dark:border-gray-700/50 flex-shrink-0">
-                    <div id="typing-indicator" class="h-5 text-sm italic text-gray-600 dark:text-gray-400"></div>
-                    <form id="message-form" class="flex items-center gap-2">
-                        <button type="button" id="giphy-btn" class="p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition"><i class="ri-gif-line ri-lg"></i></button>
-                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="flex-grow px-4 py-3 bg-white/80 dark:bg-gray-800/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        <button type="submit" class="bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 transition shadow-md"><i class="ri-send-plane-2-fill ri-lg"></i></button>
+                <footer class="p-4 border-t border-gray-200/10 dark:border-gray-800/50 flex-shrink-0">
+                    <div id="typing-indicator" class="h-5 text-sm italic text-gray-500 dark:text-gray-400"></div>
+                    <form id="message-form" class="flex items-center gap-3">
+                        <button type="button" id="giphy-btn" class="sidebar-icon-btn text-xl"><i class="ri-gif-line"></i></button>
+                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="input flex-grow">
+                        <button type="submit" class="btn-primary !p-3"><i class="ri-send-plane-2-fill ri-lg"></i></button>
                     </form>
                 </footer>
             </main>
             <aside id="user-list-sidebar" class="sidebar">
-                <h2 class="text-lg font-bold dark:text-white mb-4">Online Users</h2>
+                <h2 class="sidebar-title">Online Users</h2>
                 <div id="user-list-container"></div>
             </aside>
         </div>
     </div>
     
-    <!-- Modals -->
-    <div id="2fa-setup-modal" class="modal-container hidden">
-        <div class="modal-content max-w-md text-center">
-            <h2 class="text-2xl font-bold mb-4 dark:text-white">Set Up Two-Factor Authentication</h2>
-            <p class="text-gray-600 dark:text-gray-300 mb-4">Scan this QR code with your authenticator app.</p>
-            <div id="2fa-qr-code" class="p-2 bg-white inline-block rounded-lg"></div>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mt-4">Or enter this code manually:</p>
-            <p id="2fa-secret-key" class="font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded-md inline-block my-2"></p>
-            <hr class="my-4 dark:border-gray-600">
-            <p class="text-gray-600 dark:text-gray-300 mb-4">To complete setup, enter the 6-digit code from your app below.</p>
-            <form id="2fa-setup-form">
-                <input type="text" id="2fa-setup-code" placeholder="6-Digit Code" maxlength="6" class="modal-input w-full text-center tracking-[0.5em] font-bold text-xl">
-                <div class="mt-4 flex gap-2 justify-end">
-                    <button type="button" id="cancel-2fa-setup-btn" class="btn-secondary">Cancel</button>
-                    <button type="submit" class="btn-primary">Verify & Enable</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    <div id="settings-modal" class="modal-container hidden">
-        <div class="modal-content max-w-4xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold dark:text-white">Settings</h2>
-                <button id="close-settings-btn" class="modal-close-btn"><i class="ri-close-line"></i></button>
-            </div>
-            <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
-                <nav class="flex space-x-1 sm:space-x-4 overflow-x-auto pb-2" aria-label="Tabs">
-                    <button class="setting-tab active" data-tab="profile">Profile</button>
-                    <button class="setting-tab" data-tab="security">Security</button>
-                    <button class="setting-tab owner-only hidden" data-tab="user-management">User Management</button>
-                </nav>
-            </div>
-            <div id="profile-tab-content" class="setting-tab-content active">
-                <h3 class="text-lg font-bold dark:text-white mb-2">Edit Your Profile</h3>
-                <div class="space-y-4 max-w-md">
-                    <div>
-                        <label for="profile-nickname-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nickname</label>
-                        <input type="text" id="profile-nickname-input" class="modal-input mt-1">
-                    </div>
-                    <div>
-                        <label for="profile-icon-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Icon URL</label>
-                        <input type="text" id="profile-icon-input" class="modal-input mt-1">
-                    </div>
-                    <button id="save-profile-btn" class="btn-primary">Save Profile</button>
-                </div>
-            </div>
-            <div id="security-tab-content" class="setting-tab-content hidden">
-                <div id="2fa-section">
-                    <h3 class="text-lg font-bold dark:text-white mb-2">Two-Factor Authentication (2FA)</h3>
-                    <div id="2fa-status-display" class="mb-2 dark:text-gray-300"></div>
-                    <div id="2fa-enable-ui" class="hidden">
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Add an extra layer of security to your account.</p>
-                        <button id="enable-2fa-btn" class="btn-primary">Enable 2FA</button>
-                    </div>
-                     <div id="2fa-enabled-ui" class="hidden">
-                        <p class="text-sm text-green-600 dark:text-green-400 mb-2">2FA is enabled.</p>
-                        <button id="disable-2fa-btn" class="btn-danger">Disable 2FA</button>
-                    </div>
-                </div>
-                <hr class="my-4 dark:border-gray-600">
-                <div id="face-id-section">
-                    <h3 class="text-lg font-bold dark:text-white mb-2">Face ID</h3>
-                    <div id="face-id-status-display" class="mb-2 dark:text-gray-300"></div>
-                    <div id="face-id-enroll-ui" class="hidden">
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Enroll your face to log in with a quick scan.</p>
-                        <button id="enroll-face-id-btn" class="btn-primary">Enroll Face ID</button>
-                    </div>
-                     <div id="face-id-enrolled-ui" class="hidden">
-                        <p class="text-sm text-green-600 dark:text-green-400 mb-2">Face ID is enabled.</p>
-                        <button id="remove-face-id-btn" class="btn-danger">Remove Face ID</button>
-                    </div>
-                </div>
-                <hr class="my-4 dark:border-gray-600">
-                <div>
-                    <h3 class="text-lg font-bold dark:text-white mb-2">Buddy System</h3>
-                    <div id="buddy-system-status"></div>
-                    <div class="flex gap-2 mt-2">
-                        <input type="text" id="buddy-request-input" placeholder="Enter buddy's username" class="modal-input flex-grow">
-                        <button id="send-buddy-request-btn" class="btn-primary">Send Request</button>
-                    </div>
-                </div>
-                <hr class="my-4 dark:border-gray-600">
-                <div>
-                    <h3 class="text-lg font-bold dark:text-white mb-2">Device Management</h3>
-                    <div id="device-list" class="space-y-2"></div>
-                </div>
-            </div>
-            <div id="user-management-tab-content" class="setting-tab-content hidden owner-only">
-                <h3 class="text-lg font-bold dark:text-white mb-2">Manage All Users</h3>
-                 <input type="text" id="user-management-search" placeholder="Search users..." class="w-full p-2 mb-4 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-white">
-                <div id="user-management-list" class="max-h-96 overflow-y-auto"></div>
-            </div>
-        </div>
-    </div>
-    <div id="face-id-modal" class="modal-container hidden">
-        <div class="modal-content max-w-md text-center">
-            <h2 id="face-id-title" class="text-2xl font-bold mb-4 dark:text-white">Face ID Verification</h2>
-            <div class="relative w-64 h-48 mx-auto bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-                <video id="face-id-video" class="w-full h-full object-cover" autoplay playsinline></video>
-                <div id="face-id-overlay" class="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold hidden">
-                    <span id="face-id-status"></span>
-                </div>
-            </div>
-            <p id="face-id-prompt" class="text-gray-600 dark:text-gray-300 my-4">Position your face in the frame.</p>
-            <button id="face-id-capture-btn" class="btn-primary w-full">Verify Me</button>
-            <button id="face-id-cancel-btn" class="btn-secondary w-full mt-2">Cancel</button>
-        </div>
-    </div>
-    <div id="unrecognized-device-modal" class="modal-container hidden">
-        <div class="modal-content max-w-md text-center">
-            <i class="ri-device-recover-line ri-4x text-yellow-500 mb-4"></i>
-            <h2 class="text-2xl font-bold mb-4 dark:text-white">Unrecognized Device</h2>
-            <p class="text-gray-600 dark:text-gray-300 mb-6">
-                For your security, please approve this login.
-            </p>
-            <div id="device-approval-pending-message" class="hidden my-4 p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-800 dark:text-blue-200">
-                A request has been sent. Please wait for your buddy or an admin to approve.
-            </div>
-            <div class="space-y-3">
-                <button id="ask-buddy-btn" class="btn-primary w-full">Ask my Buddy for help</button>
-                <button id="ask-owner-btn" class="btn-secondary w-full">Ask an Owner for help</button>
-            </div>
-        </div>
-    </div>
-    <div id="user-database-modal" class="modal-container hidden">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold dark:text-white">User Database</h2>
-                <button id="close-user-db-btn" class="modal-close-btn"><i class="ri-close-line"></i></button>
-            </div>
-            <input type="text" id="user-db-search" placeholder="Search users..." class="w-full p-2 mb-4 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-white">
-            <div id="user-db-list" class="max-h-96 overflow-y-auto"></div>
-        </div>
-    </div>
+    <div id="modal-root"></div>
+    <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-3"></div>
     
     <script src="main.js"></script>
 </body>
