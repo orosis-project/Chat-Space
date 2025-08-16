@@ -1,1 +1,89 @@
-Chat Space - The Definitive EditionWelcome to Chat Space, a real-time, feature-rich chat application built with Node.js, Express, and Socket.IO. This application has been completely rewritten to provide a stable, single-room chat experience with a powerful, integrated role and moderation system. It is designed for easy deployment on platforms like Render.Core ConceptThe application is a single, persistent chat room that users can access by first entering a join code (HMS). Once inside, they can create a permanent user account (or log in) to join the main chat.Owner AccountUsername: Austin ;)Password: AMEKey Features👑 Role-Based Permission SystemThe chat now operates on a comprehensive role system, giving users different abilities.Owner: The highest authority. Has all permissions, including promoting/demoting users and managing global settings. The Owner cannot be demoted.Co-Owner: Has all the same powers as the Owner, except for the ability to demote the original Owner.Moderator: Can create new chat branches and use moderation tools like kicking, banning, and muting users.Member: The default role for new users. Can participate in chats, create DMs, and use bot commands.🤖 Heim Bot & MinigamesA fully integrated bot, "Heim Bot," is available to all users and adds a layer of fun and utility.Direct Messaging: You can DM the bot directly to use its commands.Bot Commands:/commands: Lists all available commands./8ball [question]: Ask the Magic 8-Ball a yes-or-no question./guess [1-10]: Try to guess the secret number Heim Bot is thinking of./roll [sides]: Roll a virtual die with a specified number of sides (e.g., /roll 20)./flip: Flip a coin./me [action]: Perform an action in italics (e.g., /me is building a cool app).🛡️ Advanced Moderation & Chat ManagementTools for keeping the chat safe and organized are built directly into the UI for high-ranking members.Auto Spam Detection: The server automatically detects if a user sends messages too quickly and applies a temporary 5-second cooldown.Bad Word Filter: A configurable list of inappropriate words is censored (*******). The original message is flagged and visible only to Owners and Co-Owners.Manual Moderation: Owners, Co-Owners, and Moderators can click on a user to:Kick: Temporarily remove a user.Ban: Permanently ban a user.Mute: Mute a user for a set duration (1, 5, or 15 minutes).Message Pinning: Owners and Co-Owners can "pin" important messages to save them from being auto-deleted.Auto-Deletion: To keep the chat clean, all un-pinned messages are automatically deleted after 24 hours.🎨 User & Chat CustomizationUsers and Owners have several options to personalize their experience.Custom Background: The Owner can set a custom, blurred background image for the entire chat.Editable Profiles: All users can edit their own nickname and profile photo through the settings menu.Owner Editing: The Owner can edit the nickname and photo of any user, including Heim Bot.Light/Dark Mode: All users can toggle between a light and dark theme.Sound & Typing Alerts: Users can individually enable or disable sound alerts for new messages and the "user is typing" indicator.💬 Enhanced CommunicationChat Branches (Threading): Reply directly to any message to create a clear, threaded conversation.Direct Messages (DMs): Click on any user in the user list to start a private, one-on-one conversation.Polls: Any user can create a poll with multiple options for the channel to vote on.Markdown Support: Use Markdown to format your messages with bold, italic, code, and more.Technologies UsedBackend: Node.js, Express.jsReal-Time Engine: Socket.IODatabase: lowdb (file-based JSON database)Authentication: bcrypt for password hashingScheduled Tasks: node-cron for auto-deleting messagesFrontend: HTML, Tailwind CSS, Vanilla JavaScript
+Chat Space: The Definitive Edition
+Welcome to Chat Space, a feature-rich, real-time chat application engineered for security, performance, and a sleek user experience. Built with a robust Node.js and PostgreSQL backend, this application provides a persistent, single-room chat environment with a powerful suite of modern security and moderation tools.
+
+Core Chat Features
+Real-Time Messaging: Instantaneous communication powered by Socket.IO.
+
+Public & Private Branches: Create public channels for everyone or private, invitation-only branches for focused discussions.
+
+Direct Messaging: Initiate secure, one-on-one conversations with any other user.
+
+Typing Indicators: See when other users are actively composing a message in the current channel.
+
+GIPHY Integration: Liven up conversations by searching for and sending GIFs directly in the chat.
+
+Markdown Support: Format your messages with Markdown for bold, italics, code blocks, and more.
+
+Advanced Security Suite
+Chat Space is built with a multi-layered security architecture to protect user accounts and ensure a safe environment.
+
+Account Approval System: New user registrations are not automatically accepted. An Owner or Co-Owner must approve each new account request from the User Database panel, preventing unauthorized access.
+
+Device Fingerprinting (Computer Recognition): The application creates a unique, secure fingerprint for each user's device. Logins from unrecognized devices are flagged and require approval via the Buddy System or an Owner.
+
+Fingerprint-Based Banning: When a user is banned, their device's unique fingerprint is also banned for the specified duration, preventing them from simply creating a new account on the same machine.
+
+Two-Factor Authentication (2FA): Users can enable 2FA in their security settings, requiring a time-based, 6-digit code from an authenticator app (like Google Authenticator or Authy) to log in.
+
+Face ID Verification: For the highest level of security, users can enroll their face via their webcam. Subsequent logins will require a quick facial scan to verify their identity.
+
+Buddy System: Users can pair their account with a trusted "buddy." If a user is locked out or attempts to log in from a new device, they can request approval from their buddy to regain access.
+
+User & Role Management
+Comprehensive Role System:
+
+Owner: The highest authority with all permissions.
+
+Co-Owner: Has the same powers as the Owner.
+
+Moderator: Can manage channels and use moderation tools.
+
+Member: The default role for all new, approved users.
+
+User Database: A central hub for viewing all registered users, whether they are online or offline. Owners can manage pending account requests directly from this panel.
+
+Owner & Admin Controls
+User Management Panel: A dedicated section in the settings for Owners to approve or deny pending user account requests.
+
+Global Chat Settings:
+
+Auto Approve New Users: A toggle (default off) that allows Owners to switch between the manual approval system and automatic approval for all new accounts.
+
+Redirect New Users: An optional setting (default off) that can redirect first-time visitors to an external URL, such as classroom.google.com.
+
+Customization & UI/UX
+Sleek, Modern Interface: A clean, "Apple-ish" dark mode UI designed for a smooth and intuitive user experience.
+
+Profile Customization: Users can personalize their identity by setting a custom nickname and profile icon URL.
+
+Real-Time Notifications: Receive non-intrusive, real-time toast notifications for important events like new buddy requests or pending user approvals.
+
+Responsive Design: The interface is fully responsive and works seamlessly on both desktop and mobile devices.
+
+Technology Stack
+Backend: Node.js, Express.js
+
+Database: PostgreSQL (for persistent data storage)
+
+Real-Time Engine: Socket.IO
+
+Security: bcrypt, Speakeasy (for 2FA), FingerprintJS
+
+AI: Hugging Face (for Face ID embeddings)
+
+Frontend: HTML, Tailwind CSS, Vanilla JavaScript
+
+Setup & Deployment
+Environment Variables
+To run the application, you must set the following environment variables in your hosting service (e.g., Render):
+
+DATABASE_URL: The internal connection URL for your PostgreSQL database.
+
+HUGGING_FACE_TOKEN: Your read-only API token from Hugging Face.
+
+GIPHY_API_KEY: Your API key from the GIPHY Developer Portal.
+
+Build and Start Commands
+Build Command: npm install
+
+Start Command: node server.js
