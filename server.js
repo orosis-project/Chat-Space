@@ -5,105 +5,102 @@ const socketIo = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
-const { Low } = require('lowdb');
-const { JSONFile } = require('lowdb/node');
+const { Pool } = require('pg');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 const PORT = process.env.PORT || 3000;
 
-const file = path.join(__dirname, 'db.json');
-const adapter = new JSONFile(file);
-const db = new Low(adapter, { users: {}, chatData: {} });
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const MAIN_CHAT_CODE = "HMS";
 const activeUsers = {}; 
 const ROLES = ['Member', 'Moderator', 'Co-Owner', 'Owner'];
 
-const hasPermission = (username, action, rolesData, permissionsData) => {
-    const userRole = rolesData[username];
-    const requiredRole = permissionsData[action];
-    if (!userRole || !requiredRole) return false;
-    return ROLES.indexOf(userRole) >= ROLES.indexOf(requiredRole);
-};
-
-const logAuditEvent = async (actor, action, details) => {
+async function initializeDatabase() {
+    const client = await pool.connect();
     try {
-        await db.read();
-        db.data.chatData.auditLog.unshift({ timestamp: Date.now(), actor, action, details });
-        if (db.data.chatData.auditLog.length > 200) db.data.chatData.auditLog.pop();
-        await db.write();
-    } catch (e) {
-        console.error("Failed to log audit event:", e);
-    }
-};
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS settings (
+                key VARCHAR(255) PRIMARY KEY,
+                value BOOLEAN NOT NULL
+            );
+            INSERT INTO settings (key, value) VALUES ('auto_approve_users', FALSE) ON CONFLICT (key) DO NOTHING;
+            INSERT INTO settings (key, value) VALUES ('redirect_new_users', FALSE) ON CONFLICT (key) DO NOTHING;
 
-async function initializeServer() {
-    try {
-        await db.read();
-        db.data = db.data || {};
-        db.data.users = db.data.users || {};
-        db.data.chatData = db.data.chatData || {};
-
-        const defaults = {
-            channels: { 'general': { messages: [], private: false, members: [], creator: 'System' } },
-            dms: {}, userRelations: {}, settings: { chatPaused: false }, roles: {},
-            bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [], mutes: {},
-            permissions: {
-                createBranch: 'Member', createPrivateBranch: 'Moderator',
-            }
-        };
-
-        for (const key in defaults) {
-            if (!db.data.chatData[key]) db.data.chatData[key] = defaults[key];
-        }
+            CREATE TABLE IF NOT EXISTS users (
+                username VARCHAR(255) PRIMARY KEY,
+                password_hash VARCHAR(255) NOT NULL,
+                nickname VARCHAR(255),
+                icon TEXT,
+                role VARCHAR(50) DEFAULT 'Member',
+                status VARCHAR(50) DEFAULT 'pending'
+            );
+            CREATE TABLE IF NOT EXISTS security (
+                username VARCHAR(255) PRIMARY KEY REFERENCES users(username) ON DELETE CASCADE,
+                face_id_embedding TEXT,
+                two_factor_secret VARCHAR(255),
+                two_factor_enabled BOOLEAN DEFAULT FALSE,
+                buddy_username VARCHAR(255)
+            );
+            CREATE TABLE IF NOT EXISTS devices (
+                id SERIAL PRIMARY KEY,
+                owner_username VARCHAR(255) REFERENCES users(username) ON DELETE CASCADE,
+                fingerprint_id VARCHAR(255) NOT NULL,
+                name VARCHAR(255),
+                UNIQUE(owner_username, fingerprint_id)
+            );
+            CREATE TABLE IF NOT EXISTS banned_devices (
+                fingerprint_id VARCHAR(255) PRIMARY KEY,
+                expiry_timestamp TIMESTAMPTZ
+            );
+            CREATE TABLE IF NOT EXISTS buddy_requests (
+                from_username VARCHAR(255) REFERENCES users(username) ON DELETE CASCADE,
+                to_username VARCHAR(255) REFERENCES users(username) ON DELETE CASCADE,
+                PRIMARY KEY (from_username, to_username)
+            );
+            CREATE TABLE IF NOT EXISTS channels (
+                name VARCHAR(255) PRIMARY KEY,
+                is_private BOOLEAN DEFAULT FALSE,
+                creator VARCHAR(255) REFERENCES users(username)
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                channel_name VARCHAR(255) REFERENCES channels(name) ON DELETE CASCADE,
+                author_username VARCHAR(255) REFERENCES users(username),
+                content TEXT,
+                type VARCHAR(50) DEFAULT 'text',
+                timestamp TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
         
-        const ownerUsername = "Austin ;)";
-        if (!db.data.users[ownerUsername]) {
+        const ownerRes = await client.query("SELECT * FROM users WHERE username = 'Austin ;)'");
+        if (ownerRes.rowCount === 0) {
             const salt = await bcrypt.genSalt(10);
-            db.data.users[ownerUsername] = { passwordHash: await bcrypt.hash("AME", salt), nickname: "Austin ;)", icon: 'default', canCopy: true, hasAgreedToTerms: true, lastSeenRole: 'Owner' };
-            db.data.chatData.roles[ownerUsername] = 'Owner';
+            const passwordHash = await bcrypt.hash("AME", salt);
+            await client.query(
+                "INSERT INTO users (username, password_hash, nickname, icon, role, status) VALUES ($1, $2, $3, $4, $5, 'approved')",
+                ['Austin ;)', passwordHash, 'Austin ;)', 'default', 'Owner']
+            );
         }
-        if (!db.data.users["Heim Bot"]) {
-            db.data.users["Heim Bot"] = { nickname: "Heim Bot", icon: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_2/v1700469524/williamsvillek12org/zil1pj6ifch1f4h14oid/8HEIMMIDDLE.png', canCopy: true };
-            db.data.chatData.roles["Heim Bot"] = 'Bot';
-        }
-
-        await db.write();
-        server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
-    } catch (error) {
-        console.error("FATAL: Could not initialize server.", error);
-        process.exit(1);
+    } finally {
+        client.release();
     }
 }
 
 // --- API Routes ---
-app.get('/api/data-api-url', (req, res) => {
-    if (process.env.DATA_API_BASE_URL) {
-        res.json({ url: process.env.DATA_API_BASE_URL });
-    } else {
-        res.status(500).json({ message: "DATA_API_BASE_URL is not configured on the server." });
-    }
-});
-
 app.get('/api/hf-token', (req, res) => {
-    if (process.env.HUGGING_FACE_TOKEN) {
-        res.json({ token: process.env.HUGGING_FACE_TOKEN });
-    } else {
-        res.status(500).json({ message: "Hugging Face token not configured on the server." });
-    }
-});
-
-app.get('/api/giphy-key', (req, res) => {
-    if (process.env.GIPHY_API_KEY) {
-        res.json({ apiKey: process.env.GIPHY_API_KEY });
-    } else {
-        res.status(500).json({ message: "GIPHY API key not configured on the server." });
-    }
+    if (process.env.HUGGING_FACE_TOKEN) res.json({ token: process.env.HUGGING_FACE_TOKEN });
+    else res.status(500).json({ message: "Hugging Face token not configured." });
 });
 
 app.post('/join', (req, res) => {
@@ -112,110 +109,110 @@ app.post('/join', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    await db.read();
-    const { username, password } = req.body;
-    if (db.data.chatData.bans.normal.includes(username)) {
-        return res.status(403).json({ message: "You are banned from this chat." });
+    const { username, password, fingerprintId } = req.body;
+    try {
+        const bannedDeviceRes = await pool.query("SELECT * FROM banned_devices WHERE fingerprint_id = $1 AND expiry_timestamp > NOW()", [fingerprintId]);
+        if (bannedDeviceRes.rowCount > 0) {
+            return res.status(403).json({ message: "This device has been temporarily banned." });
+        }
+
+        const userRes = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+        if (userRes.rowCount > 0) {
+            const user = userRes.rows[0];
+            if (user.status === 'pending') return res.status(401).json({ message: "Account pending approval." });
+            if (!await bcrypt.compare(password, user.password_hash)) return res.status(401).json({ message: "Invalid credentials." });
+            res.status(200).json({ username: user.username, role: user.role, nickname: user.nickname, status: user.status });
+        } else {
+            const settingsRes = await pool.query("SELECT value FROM settings WHERE key = 'auto_approve_users'");
+            const autoApprove = settingsRes.rows[0].value;
+            const status = autoApprove ? 'approved' : 'pending';
+            
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(password, salt);
+            const newUserRes = await pool.query(
+                "INSERT INTO users (username, password_hash, nickname, icon, role, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+                [username, passwordHash, username, 'default', 'Member', status]
+            );
+            const newUser = newUserRes.rows[0];
+
+            if (status === 'pending') {
+                Object.values(activeUsers).forEach(user => {
+                    if (ROLES.indexOf(user.role) >= ROLES.indexOf('Co-Owner')) {
+                        io.to(user.socketId).emit('notification', { message: `New user request from ${username}`, type: 'info', event: 'new_user_request' });
+                    }
+                });
+                return res.status(202).json({ message: "Account request sent. Waiting for approval." });
+            }
+            res.status(200).json({ username: newUser.username, role: newUser.role, nickname: newUser.nickname, status: newUser.status });
+        }
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ message: "Server error during login." });
     }
-    const user = db.data.users[username];
-    if (user && user.passwordHash) {
-        if (!await bcrypt.compare(password, user.passwordHash)) return res.status(401).json({ message: "Invalid credentials." });
-    } else if (!user) {
-        const salt = await bcrypt.genSalt(10);
-        db.data.users[username] = { passwordHash: await bcrypt.hash(password, salt), nickname: username, icon: 'default', canCopy: true, hasAgreedToTerms: false, lastSeenRole: null };
-        db.data.chatData.roles[username] = 'Member';
-        await db.write();
-    }
-    const role = db.data.chatData.roles[username] || 'Member';
-    const nickname = db.data.users[username].nickname || username;
-    res.status(200).json({ username, role, nickname });
 });
 
+app.get('/users/pending', async (req, res) => {
+    const pendingUsers = await pool.query("SELECT username FROM users WHERE status = 'pending'");
+    res.json(pendingUsers.rows);
+});
+
+app.post('/users/:username/status', async (req, res) => {
+    const { username } = req.params;
+    const { action } = req.body;
+    
+    if (action === 'approve') {
+        await pool.query("UPDATE users SET status = 'approved' WHERE username = $1", [username]);
+    } else if (action === 'deny') {
+        await pool.query("DELETE FROM users WHERE username = $1", [username]);
+    }
+    res.status(200).json({ message: `User ${action}d.` });
+});
+
+app.get('/security/:username', async (req, res) => {
+    try {
+        let securityRes = await pool.query("SELECT * FROM security WHERE username = $1", [req.params.username]);
+        if (securityRes.rowCount === 0) {
+            await pool.query("INSERT INTO security (username) VALUES ($1)", [req.params.username]);
+            securityRes = await pool.query("SELECT * FROM security WHERE username = $1", [req.params.username]);
+        }
+        const devicesRes = await pool.query("SELECT * FROM devices WHERE owner_username = $1", [req.params.username]);
+        const buddyReqRes = await pool.query("SELECT * FROM buddy_requests WHERE to_username = $1", [req.params.username]);
+        const securityData = {
+            ...securityRes.rows[0],
+            devices: devicesRes.rows,
+            buddyRequests: buddyReqRes.rows,
+        };
+        res.json(securityData);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch security data." });
+    }
+});
+
+// --- Socket.IO ---
 io.on('connection', async (socket) => {
     const { username } = socket.handshake.auth;
     if (!username) return socket.disconnect();
+    
+    const userRes = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+    if (userRes.rowCount === 0) return socket.disconnect();
+    const userData = userRes.rows[0];
 
-    try {
-        await db.read();
-        const userData = db.data.users[username];
-        if (!userData) return socket.disconnect();
-
-        const userRole = db.data.chatData.roles[username] || 'Member';
-        activeUsers[username] = { socketId: socket.id, role: userRole, nickname: userData.nickname, icon: userData.icon, username };
-        
-        const visibleChannels = Object.entries(db.data.chatData.channels).reduce((acc, [id, channel]) => {
-            if (!channel.private || channel.members.includes(username)) {
-                acc[id] = channel;
-            }
-            return acc;
-        }, {});
-
-        Object.keys(visibleChannels).forEach(channelId => socket.join(channelId));
-
-        socket.emit('join-successful', {
-            allUsers: db.data.users, 
-            channels: visibleChannels,
-            roles: db.data.chatData.roles, 
-            permissions: db.data.chatData.permissions,
-            currentUserData: userData,
-            username: username,
-            role: userRole,
-            nickname: userData.nickname,
-        });
-
-        io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
-
-    } catch (error) {
-        console.error("Error during user connection setup:", error);
-        return socket.disconnect();
-    }
+    activeUsers[username] = { socketId: socket.id, role: userData.role, nickname: userData.nickname, icon: userData.icon, username };
+    
+    socket.emit('join-successful', {
+        allUsers: (await pool.query("SELECT username, nickname, icon, role FROM users")).rows, 
+        channels: (await pool.query("SELECT * FROM channels")).rows,
+        username: userData.username, role: userData.role, nickname: userData.nickname,
+    });
+    io.emit('update-user-list', activeUsers);
     
     socket.on('disconnect', () => {
         delete activeUsers[username];
-        io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
-    });
-
-    socket.on('send-message', async ({ channel, message, type = 'text' }) => {
-        await db.read();
-        const { channels } = db.data.chatData;
-        if (!channels[channel]) return;
-
-        const messageObject = {
-            id: uuidv4(), author: username, nickname: activeUsers[username].nickname,
-            content: message, timestamp: Date.now(), icon: activeUsers[username].icon, type
-        };
-        
-        channels[channel].messages.push(messageObject);
-        await db.write();
-        io.to(channel).emit('new-message', { channel, message: messageObject });
-    });
-
-    socket.on('create-channel', async ({ channelName, isPrivate }) => {
-        await db.read();
-        const { roles, permissions, channels } = db.data.chatData;
-        const requiredPermission = isPrivate ? 'createPrivateBranch' : 'createBranch';
-
-        if (!hasPermission(username, requiredPermission, roles, permissions)) {
-            return socket.emit('system-message', { text: `You don't have permission to create ${isPrivate ? 'private' : 'public'} branches.` });
-        }
-        if (channels[channelName]) {
-            return socket.emit('system-message', { text: `A branch named #${channelName} already exists.` });
-        }
-        
-        channels[channelName] = { messages: [], private: isPrivate, creator: username, members: isPrivate ? [username] : [] };
-        await db.write();
-        
-        socket.join(channelName);
-
-        if (isPrivate) {
-            socket.emit('channels-updated', channels);
-        } else {
-            io.emit('channels-updated', channels);
-            io.sockets.sockets.forEach(s => s.join(channelName));
-        }
-
-        await logAuditEvent(username, `Created ${isPrivate ? 'Private' : 'Public'} Branch`, `#${channelName}`);
+        io.emit('update-user-list', activeUsers);
     });
 });
 
-initializeServer();
+// --- Start Server ---
+initializeDatabase().then(() => {
+    server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
+}).catch(err => console.error("Failed to start server:", err));
