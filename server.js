@@ -23,9 +23,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 const MAIN_CHAT_CODE = "HMS";
 const activeUsers = {}; 
 const ROLES = ['Member', 'Moderator', 'Co-Owner', 'Owner'];
-const activeTypers = {};
-const activeGames = {};
-const lastMessageTimestamps = {};
 
 const hasPermission = (username, action, rolesData, permissionsData) => {
     const userRole = rolesData[username];
@@ -34,15 +31,9 @@ const hasPermission = (username, action, rolesData, permissionsData) => {
     return ROLES.indexOf(userRole) >= ROLES.indexOf(requiredRole);
 };
 
-const canActOn = (actorUsername, targetUsername, rolesData) => {
-    const actorRoleIndex = ROLES.indexOf(rolesData[actorUsername]);
-    const targetRoleIndex = ROLES.indexOf(rolesData[targetUsername]);
-    if (targetRoleIndex === -1) return true;
-    return actorRoleIndex > targetRoleIndex;
-};
-
 const logAuditEvent = async (actor, action, details) => {
     try {
+        await db.read();
         db.data.chatData.auditLog.unshift({ timestamp: Date.now(), actor, action, details });
         if (db.data.chatData.auditLog.length > 200) db.data.chatData.auditLog.pop();
         await db.write();
@@ -54,31 +45,23 @@ const logAuditEvent = async (actor, action, details) => {
 async function initializeServer() {
     try {
         await db.read();
+        db.data = db.data || {};
         db.data.users = db.data.users || {};
         db.data.chatData = db.data.chatData || {};
 
         const defaults = {
-            channels: { 'general': { messages: [], private: false, creator: 'System', slowMode: 0 } },
+            channels: { 'general': { messages: [], private: false, members: [], creator: 'System' } },
             dms: {}, userRelations: {}, settings: { chatPaused: false }, roles: {},
             bans: { normal: [], silent: [] }, loggedMessages: {}, auditLog: [], mutes: {},
             permissions: {
-                sendMessage: 'Member', sendGiphy: 'Member', reactToMessage: 'Member',
-                replyToMessage: 'Member', editOwnMessage: 'Member', deleteOwnMessage: 'Member',
-                startDM: 'Member', addFriend: 'Member', blockUser: 'Member',
-                createBranch: 'Member', createPrivateBranch: 'Moderator', inviteToBranch: 'Moderator',
-                deleteAnyMessage: 'Moderator', viewUserProfile: 'Moderator', muteUser: 'Moderator',
-                kickUser: 'Moderator', banUser: 'Moderator', silentBanUser: 'Moderator',
-                clearChat: 'Owner', pauseChat: 'Owner', setSlowMode: 'Co-Owner',
-                manageUsers: 'Co-Owner', viewAuditLog: 'Owner', viewPermissions: 'Owner', setPermissions: 'Owner'
+                createBranch: 'Member', createPrivateBranch: 'Moderator',
             }
         };
 
         for (const key in defaults) {
             if (!db.data.chatData[key]) db.data.chatData[key] = defaults[key];
         }
-        if (!db.data.chatData.bans.normal) db.data.chatData.bans.normal = [];
-        if (!db.data.chatData.bans.silent) db.data.chatData.bans.silent = [];
-
+        
         const ownerUsername = "Austin ;)";
         if (!db.data.users[ownerUsername]) {
             const salt = await bcrypt.genSalt(10);
@@ -99,7 +82,21 @@ async function initializeServer() {
 }
 
 // --- API Routes ---
-app.get('/api/giphy-key', (req, res) => res.json({ apiKey: process.env.GIPHY_API_KEY }));
+app.get('/api/hf-token', (req, res) => {
+    if (process.env.HUGGING_FACE_TOKEN) {
+        res.json({ token: process.env.HUGGING_FACE_TOKEN });
+    } else {
+        res.status(500).json({ message: "Hugging Face token not configured on the server." });
+    }
+});
+
+app.get('/api/giphy-key', (req, res) => {
+    if (process.env.GIPHY_API_KEY) {
+        res.json({ apiKey: process.env.GIPHY_API_KEY });
+    } else {
+        res.status(500).json({ message: "GIPHY API key not configured on the server." });
+    }
+});
 
 app.post('/join', (req, res) => {
     if (req.body.code === MAIN_CHAT_CODE) res.status(200).json({ message: "Access granted." });
@@ -127,41 +124,35 @@ app.post('/login', async (req, res) => {
 });
 
 io.on('connection', async (socket) => {
-    const { username, role, nickname } = socket.handshake.auth;
-
-    if (!username) {
-        return socket.disconnect();
-    }
-
-    const currentUsername = username;
-    let userNickname = nickname;
+    const { username } = socket.handshake.auth;
+    if (!username) return socket.disconnect();
 
     try {
         await db.read();
-        const userData = db.data.users[currentUsername];
-        if (!userData) {
-            return socket.disconnect();
-        }
-        userNickname = userData.nickname || nickname;
+        const userData = db.data.users[username];
+        if (!userData) return socket.disconnect();
 
-        activeUsers[currentUsername] = { socketId: socket.id, role, nickname: userNickname, icon: userData?.icon, status: 'online' };
+        const userRole = db.data.chatData.roles[username] || 'Member';
+        activeUsers[username] = { socketId: socket.id, role: userRole, nickname: userData.nickname, icon: userData.icon, username };
         
-        Object.keys(db.data.chatData.channels).forEach(channelId => {
-            socket.join(channelId);
-        });
+        const visibleChannels = Object.entries(db.data.chatData.channels).reduce((acc, [id, channel]) => {
+            if (!channel.private || channel.members.includes(username)) {
+                acc[id] = channel;
+            }
+            return acc;
+        }, {});
+
+        Object.keys(visibleChannels).forEach(channelId => socket.join(channelId));
 
         socket.emit('join-successful', {
             allUsers: db.data.users, 
-            channels: db.data.chatData.channels, 
-            dms: db.data.chatData.dms,
+            channels: visibleChannels,
             roles: db.data.chatData.roles, 
             permissions: db.data.chatData.permissions,
-            userRelations: db.data.chatData.userRelations[currentUsername] || { friends: [], blocked: [] },
             currentUserData: userData,
-            username: currentUsername,
-            role: db.data.chatData.roles[currentUsername],
-            nickname: userNickname,
-            icon: userData.icon
+            username: username,
+            role: userRole,
+            nickname: userData.nickname,
         });
 
         io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
@@ -172,35 +163,18 @@ io.on('connection', async (socket) => {
     }
     
     socket.on('disconnect', () => {
-        if (currentUsername) {
-            delete activeUsers[currentUsername];
-            Object.keys(activeTypers).forEach(channel => {
-                if (activeTypers[channel] && activeTypers[channel].delete(userNickname)) {
-                    io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
-                }
-            });
-            io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
-        }
+        delete activeUsers[username];
+        io.emit('update-user-list', { activeUsers, allUsersData: db.data.users });
     });
 
-    socket.on('send-message', async ({ channel, message, replyingTo, type = 'text' }) => {
-        const { roles, permissions, bans, settings, channels } = db.data.chatData;
-        if (!hasPermission(currentUsername, 'sendMessage', roles, permissions)) return;
-        if (bans.silent.includes(currentUsername)) return;
-        if (settings.chatPaused && !hasPermission(currentUsername, 'pauseChat', roles, permissions)) {
-            return socket.emit('system-message', { text: "Chat is currently paused." });
-        }
-        const now = Date.now();
-        const slowMode = channels[channel]?.slowMode || 0;
-        if (now - (lastMessageTimestamps[currentUsername] || 0) < slowMode * 1000) {
-            return socket.emit('system-message', { text: `Slow mode is active. Please wait ${slowMode} seconds.` });
-        }
-        lastMessageTimestamps[currentUsername] = now;
+    socket.on('send-message', async ({ channel, message, type = 'text' }) => {
+        await db.read();
+        const { channels } = db.data.chatData;
+        if (!channels[channel]) return;
 
         const messageObject = {
-            id: uuidv4(), author: currentUsername, nickname: activeUsers[currentUsername].nickname,
-            content: message, timestamp: now, icon: activeUsers[currentUsername].icon,
-            pinned: false, reactions: {}, replyingTo: replyingTo || null, type: type
+            id: uuidv4(), author: username, nickname: activeUsers[username].nickname,
+            content: message, timestamp: Date.now(), icon: activeUsers[username].icon, type
         };
         
         channels[channel].messages.push(messageObject);
@@ -208,95 +182,31 @@ io.on('connection', async (socket) => {
         io.to(channel).emit('new-message', { channel, message: messageObject });
     });
 
-    // **NEW:** Handle channel creation
-    socket.on('create-channel', async ({ channelName }) => {
+    socket.on('create-channel', async ({ channelName, isPrivate }) => {
+        await db.read();
         const { roles, permissions, channels } = db.data.chatData;
-        if (!hasPermission(currentUsername, 'createBranch', roles, permissions)) {
-            return socket.emit('system-message', { text: "You don't have permission to create branches." });
+        const requiredPermission = isPrivate ? 'createPrivateBranch' : 'createBranch';
+
+        if (!hasPermission(username, requiredPermission, roles, permissions)) {
+            return socket.emit('system-message', { text: `You don't have permission to create ${isPrivate ? 'private' : 'public'} branches.` });
         }
         if (channels[channelName]) {
             return socket.emit('system-message', { text: `A branch named #${channelName} already exists.` });
         }
         
-        channels[channelName] = { messages: [], private: false, creator: currentUsername, slowMode: 0 };
+        channels[channelName] = { messages: [], private: isPrivate, creator: username, members: isPrivate ? [username] : [] };
         await db.write();
         
-        // Notify all clients about the new channel list
-        io.emit('channels-updated', channels);
-        
-        // Automatically make the creator and all other connected users join the new room
-        io.sockets.sockets.forEach((sock) => {
-            sock.join(channelName);
-        });
+        socket.join(channelName);
 
-        await logAuditEvent(currentUsername, 'Created Branch', `#${channelName}`);
-    });
-
-    socket.on('edit-message', async ({ channel, messageId, newContent }) => {
-        const message = db.data.chatData.channels[channel]?.messages.find(m => m.id === messageId);
-        if (message && message.author === currentUsername) {
-            message.content = newContent;
-            message.edited = true;
-            await db.write();
-            io.to(channel).emit('message-updated', { channel, messageId, newContent });
+        if (isPrivate) {
+            socket.emit('channels-updated', channels);
+        } else {
+            io.emit('channels-updated', channels);
+            io.sockets.sockets.forEach(s => s.join(channelName));
         }
-    });
 
-    socket.on('delete-message', async ({ channel, messageId }) => {
-        const { roles, permissions, channels } = db.data.chatData;
-        const messages = channels[channel]?.messages;
-        const message = messages?.find(m => m.id === messageId);
-        if (message && (message.author === currentUsername || hasPermission(currentUsername, 'deleteAnyMessage', roles, permissions))) {
-            channels[channel].messages = messages.filter(m => m.id !== messageId);
-            await db.write();
-            io.to(channel).emit('message-deleted', { channel, messageId });
-            await logAuditEvent(currentUsername, 'Deleted Message', `In #${channel}`);
-        }
-    });
-
-    socket.on('start-typing', ({ channel }) => {
-        if (!activeTypers[channel]) activeTypers[channel] = new Set();
-        activeTypers[channel].add(activeUsers[currentUsername]?.nickname || currentUsername);
-        io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
-    });
-    
-    socket.on('stop-typing', ({ channel }) => {
-        if (activeTypers[channel]) {
-            activeTypers[channel].delete(activeUsers[currentUsername]?.nickname || currentUsername);
-            io.to(channel).emit('typing-update', { channel, typers: Array.from(activeTypers[channel]) });
-        }
-    });
-
-    socket.on('mute-user', async ({ targetUsername, durationMinutes }) => {
-        const { roles, permissions } = db.data.chatData;
-        if (hasPermission(currentUsername, 'muteUser', roles, permissions) && canActOn(currentUsername, targetUsername, roles)) {
-            const muteUntil = Date.now() + durationMinutes * 60 * 1000;
-            db.data.chatData.mutes[targetUsername] = muteUntil;
-            await db.write();
-            await logAuditEvent(currentUsername, 'Muted User', `${targetUsername} for ${durationMinutes} min`);
-            io.emit('system-message', { text: `${targetUsername} was muted by ${currentUsername} for ${durationMinutes} minutes.` });
-        }
-    });
-
-    socket.on('start-trivia', async ({ channel }) => {
-        if (activeGames[channel]) return;
-        const questions = [{ q: "What is the capital of France?", a: "Paris" }, { q: "2 + 2 = ?", a: "4" }];
-        activeGames[channel] = { type: 'trivia', questions, current: 0, scores: {} };
-        io.to(channel).emit('game-started', { type: 'trivia', question: questions[0].q });
-    });
-
-    socket.on('game-answer', ({ channel, answer }) => {
-        const game = activeGames[channel];
-        if (game && game.type === 'trivia' && answer.toLowerCase() === game.questions[game.current].a.toLowerCase()) {
-            game.scores[currentUsername] = (game.scores[currentUsername] || 0) + 1;
-            game.current++;
-            if (game.current >= game.questions.length) {
-                io.to(channel).emit('game-over', { scores: game.scores });
-                delete activeGames[channel];
-            } else {
-                io.to(channel).emit('game-update', { question: game.questions[game.current].q, scores: game.scores });
-            }
-        }
+        await logAuditEvent(username, `Created ${isPrivate ? 'Private' : 'Public'} Branch`, `#${channelName}`);
     });
 });
 
