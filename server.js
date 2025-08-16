@@ -82,6 +82,14 @@ async function initializeServer() {
 }
 
 // --- API Routes ---
+app.get('/api/data-api-url', (req, res) => {
+    if (process.env.DATA_API_BASE_URL) {
+        res.json({ url: process.env.DATA_API_BASE_URL });
+    } else {
+        res.status(500).json({ message: "DATA_API_BASE_URL is not configured on the server." });
+    }
+});
+
 app.get('/api/hf-token', (req, res) => {
     if (process.env.HUGGING_FACE_TOKEN) {
         res.json({ token: process.env.HUGGING_FACE_TOKEN });
