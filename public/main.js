@@ -1,6 +1,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // --- Global State & Config ---
     if (typeof fpPromise === 'undefined') { console.error("FingerprintJS not loaded!"); return; }
+    
+    let DATA_API_URL = 'http://localhost:10000'; // Default for local dev
+    try {
+        const response = await fetch('/api/data-api-url');
+        if (response.ok) {
+            const data = await response.json();
+            DATA_API_URL = data.url;
+        } else {
+            console.error("Could not fetch Data API URL from server. Falling back to localhost. This will fail if not running locally.");
+        }
+    } catch (e) {
+        console.error("Error fetching Data API URL:", e);
+    }
+
     let HUGGING_FACE_TOKEN = null;
     try {
         const response = await fetch('/api/hf-token');
@@ -17,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let tempLoginData = null;
     let currentVisitorId = null;
-    const DATA_API_URL = 'http://localhost:10000';
     let faceIdStream = null;
 
     // --- Element Selectors ---
@@ -351,7 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     settingsBtn.addEventListener('click', () => { renderSecuritySettings(); settingsModal.classList.remove('hidden'); });
-    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden');
     faceIdCancelBtn.addEventListener('click', () => { stopWebcam(); faceIdModal.classList.add('hidden'); });
 
     enrollFaceIdBtn.addEventListener('click', async () => {
