@@ -65,7 +65,6 @@
 
         <!-- Main Chat Page -->
         <div id="chat-page" class="page hidden w-full h-full z-10 flex">
-            <!-- Left Sidebar (Navigation) -->
             <aside id="navigation-sidebar" class="sidebar">
                 <div class="flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
@@ -90,8 +89,6 @@
                     </div>
                 </div>
             </aside>
-            
-            <!-- Main Chat Area -->
             <main id="main-chat-area" class="flex-grow flex flex-col bg-white/40 dark:bg-gray-900/40 backdrop-blur-md">
                 <header class="p-4 border-b border-gray-300/50 dark:border-gray-700/50 flex items-center justify-between flex-shrink-0">
                     <div class="flex items-center gap-4">
@@ -109,8 +106,6 @@
                     </form>
                 </footer>
             </main>
-
-            <!-- Right Sidebar (User List) -->
             <aside id="user-list-sidebar" class="sidebar">
                 <h2 class="text-lg font-bold dark:text-white mb-4">Online Users</h2>
                 <div id="user-list-container"></div>
@@ -122,7 +117,7 @@
     <div id="2fa-setup-modal" class="modal-container hidden">
         <div class="modal-content max-w-md text-center">
             <h2 class="text-2xl font-bold mb-4 dark:text-white">Set Up Two-Factor Authentication</h2>
-            <p class="text-gray-600 dark:text-gray-300 mb-4">Scan this QR code with your authenticator app (like Google Authenticator, Authy, or 1Password).</p>
+            <p class="text-gray-600 dark:text-gray-300 mb-4">Scan this QR code with your authenticator app.</p>
             <div id="2fa-qr-code" class="p-2 bg-white inline-block rounded-lg"></div>
             <p class="text-gray-500 dark:text-gray-400 text-sm mt-4">Or enter this code manually:</p>
             <p id="2fa-secret-key" class="font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded-md inline-block my-2"></p>
@@ -137,7 +132,6 @@
             </form>
         </div>
     </div>
-    
     <div id="settings-modal" class="modal-container hidden">
         <div class="modal-content max-w-4xl">
             <div class="flex justify-between items-center mb-4">
@@ -213,7 +207,6 @@
             </div>
         </div>
     </div>
-    
     <div id="face-id-modal" class="modal-container hidden">
         <div class="modal-content max-w-md text-center">
             <h2 id="face-id-title" class="text-2xl font-bold mb-4 dark:text-white">Face ID Verification</h2>
