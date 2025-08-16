@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Element Selectors ---
     const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page'), twoFactor: document.getElementById('two-factor-page') };
+    const joinCodeForm = document.getElementById('join-code-form');
     const loginForm = document.getElementById('login-form');
     const settingsModal = document.getElementById('settings-modal');
     const settingsBtn = document.getElementById('settings-btn');
@@ -63,12 +64,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- API Helpers ---
     const dataApi = {
-        get: (endpoint) => fetch(`${DATA_API_URL}/${endpoint}`).then(res => res.ok ? res.json() : Promise.reject(res)),
+        get: (endpoint) => fetch(`${DATA_API_URL}/${endpoint}`).then(res => res.ok ? res.json() : Promise.reject(res.json())),
         post: (endpoint, body) => fetch(`${DATA_API_URL}/${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
-        }).then(res => res.ok ? res.json() : Promise.reject(res)),
+        }).then(res => res.ok ? res.json() : Promise.reject(res.json())),
     };
     const huggingFaceApi = {
         async getEmbedding(blob) {
@@ -176,6 +177,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- Login Flow ---
+    const handleJoinAttempt = async (e) => {
+        e.preventDefault();
+        const joinError = document.getElementById('join-error');
+        joinError.textContent = '';
+        const code = document.getElementById('join-code-input').value;
+        try {
+            const response = await fetch('/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+            if (!response.ok) throw new Error((await response.json()).message);
+            pages.joinCode.classList.replace('active', 'hidden');
+            pages.login.classList.replace('hidden', 'active');
+        } catch (error) {
+            joinError.textContent = error.message;
+        }
+    };
+    
     const handleLoginAttempt = async (e) => {
         e.preventDefault();
         const loginError = document.getElementById('login-error');
@@ -288,6 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // --- Event Handlers ---
+    joinCodeForm.addEventListener('submit', handleJoinAttempt);
     loginForm.addEventListener('submit', handleLoginAttempt);
     twoFactorForm.addEventListener('submit', handle2faVerification);
 
@@ -408,6 +425,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         pages.chat.classList.replace('hidden', 'flex');
         pages.login.classList.replace('active', 'hidden');
         pages.twoFactor.classList.replace('active', 'hidden');
-        // Initial render calls for chat UI
+        // Initial render calls for chat UI can go here
     });
 });
