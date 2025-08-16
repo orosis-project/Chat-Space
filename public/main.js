@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         allUsers: {}, activeUsers: {}, channels: {},
         securityData: { devices: [], buddy: null, buddyRequests: [], faceId: null, twoFactorEnabled: false }
     };
-    let tempLoginData = null; // To hold login data during 2FA/FaceID checks
+    let tempLoginData = null;
     let currentVisitorId = null;
     const DATA_API_URL = 'http://localhost:10000';
     let faceIdStream = null;
@@ -23,28 +23,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Element Selectors ---
     const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page'), twoFactor: document.getElementById('two-factor-page') };
     const loginForm = document.getElementById('login-form');
-    const messageForm = document.getElementById('message-form');
-    const messageInput = document.getElementById('message-input');
-    const chatWindow = document.getElementById('chat-window');
-    const channelsList = document.getElementById('channels-list');
-    const userListContainer = document.getElementById('user-list-container');
-    const channelTitle = document.getElementById('channel-title');
-    const addChannelBtn = document.getElementById('add-channel-btn');
-    const menuToggleBtn = document.getElementById('menu-toggle-btn');
-    const navigationSidebar = document.getElementById('navigation-sidebar');
-    
-    // Modals
     const settingsModal = document.getElementById('settings-modal');
-    const unrecognizedDeviceModal = document.getElementById('unrecognized-device-modal');
-    const faceIdModal = document.getElementById('face-id-modal');
-    const twoFactorSetupModal = document.getElementById('2fa-setup-modal');
-
-    // Buttons
     const settingsBtn = document.getElementById('settings-btn');
     const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const unrecognizedDeviceModal = document.getElementById('unrecognized-device-modal');
     
     // 2FA Elements
     const twoFactorForm = document.getElementById('2fa-form');
+    const twoFactorSetupModal = document.getElementById('2fa-setup-modal');
     const enable2faBtn = document.getElementById('enable-2fa-btn');
     const disable2faBtn = document.getElementById('disable-2fa-btn');
     const cancel2faSetupBtn = document.getElementById('cancel-2fa-setup-btn');
@@ -56,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const setup2faForm = document.getElementById('2fa-setup-form');
 
     // Face ID Elements
+    const faceIdModal = document.getElementById('face-id-modal');
     const faceIdVideo = document.getElementById('face-id-video');
     const faceIdStatus = document.getElementById('face-id-status');
     const faceIdOverlay = document.getElementById('face-id-overlay');
@@ -100,6 +87,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             throw new Error(result.error || "Failed to get face embedding from API response.");
         }
+    };
+
+    // --- Core Functions ---
+    const cosineSimilarity = (vecA, vecB) => {
+        if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) return 0;
+        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+        const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+        const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+        if (magnitudeA === 0 || magnitudeB === 0) return 0;
+        return dotProduct / (magnitudeA * magnitudeB);
+    };
+    
+    // --- Webcam & Face ID Logic ---
+    const startWebcam = async (videoElement) => {
+        try {
+            if (faceIdStream) faceIdStream.getTracks().forEach(track => track.stop());
+            faceIdStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            videoElement.srcObject = faceIdStream;
+            return true;
+        } catch (err) {
+            console.error("Webcam access denied:", err);
+            alert("Webcam access is required for Face ID. Please enable it in your browser settings.");
+            return false;
+        }
+    };
+
+    const stopWebcam = () => {
+        if (faceIdStream) {
+            faceIdStream.getTracks().forEach(track => track.stop());
+            faceIdStream = null;
+        }
+    };
+
+    const captureImageBlob = (videoElement) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+        canvas.getContext('2d').drawImage(videoElement, 0, 0);
+        return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
     };
 
     // --- Rendering Functions ---
