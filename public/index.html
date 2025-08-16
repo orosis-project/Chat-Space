@@ -67,7 +67,6 @@
         <div id="chat-page" class="page hidden w-full h-full z-10 flex">
             <!-- Left Sidebar (Navigation) -->
             <aside id="navigation-sidebar" class="sidebar">
-                <!-- Branches Section -->
                 <div class="flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-lg font-bold dark:text-white px-3">Branches</h2>
@@ -75,12 +74,10 @@
                     </div>
                     <div id="channels-list" class="space-y-1 overflow-y-auto max-h-48"></div>
                 </div>
-                <!-- Direct Messages Section -->
                 <div class="flex-grow mt-4 pt-4 border-t border-gray-300/50 dark:border-gray-700/50 overflow-y-auto">
                      <h2 class="text-lg font-bold dark:text-white px-3 mb-2">Direct Messages</h2>
                      <div id="dm-list" class="space-y-1"></div>
                 </div>
-                <!-- User Controls Section -->
                 <div class="mt-auto flex-shrink-0 space-y-2">
                     <button id="user-database-btn" class="sidebar-btn-full"><i class="ri-group-line"></i><span>Users</span></button>
                     <button id="settings-btn" class="sidebar-btn-full"><i class="ri-settings-3-line"></i><span>Settings</span></button>
@@ -102,20 +99,9 @@
                         <h1 id="channel-title" class="text-2xl font-bold dark:text-white"># general</h1>
                     </div>
                 </header>
-                
-                <div id="chat-status-banner" class="hidden p-2 text-center bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-100 font-semibold flex-shrink-0">
-                    Chat is currently paused.
-                </div>
-
                 <div id="chat-window" class="flex-grow p-4 overflow-y-auto"></div>
-
                 <footer class="p-4 border-t border-gray-300/50 dark:border-gray-700/50 flex-shrink-0">
-                    <div id="game-container" class="hidden mb-2"></div>
                     <div id="typing-indicator" class="h-5 text-sm italic text-gray-600 dark:text-gray-400"></div>
-                    <div id="reply-preview" class="hidden items-center justify-between text-sm p-2 mb-2 bg-gray-200 dark:bg-gray-700 rounded-md">
-                        <div class="truncate"><span class="text-xs text-gray-600 dark:text-gray-400">Replying to <strong id="reply-author"></strong></span><p id="reply-preview-text" class="text-gray-800 dark:text-gray-200"></p></div>
-                        <button id="cancel-reply-btn" class="p-1 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full"><i class="ri-close-line"></i></button>
-                    </div>
                     <form id="message-form" class="flex items-center gap-2">
                         <button type="button" id="giphy-btn" class="p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition"><i class="ri-gif-line ri-lg"></i></button>
                         <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="flex-grow px-4 py-3 bg-white/80 dark:bg-gray-800/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
@@ -180,7 +166,6 @@
                 </div>
             </div>
             <div id="security-tab-content" class="setting-tab-content hidden">
-                <!-- 2FA Section -->
                 <div id="2fa-section">
                     <h3 class="text-lg font-bold dark:text-white mb-2">Two-Factor Authentication (2FA)</h3>
                     <div id="2fa-status-display" class="mb-2 dark:text-gray-300"></div>
@@ -194,7 +179,6 @@
                     </div>
                 </div>
                 <hr class="my-4 dark:border-gray-600">
-                <!-- Face ID Section -->
                 <div id="face-id-section">
                     <h3 class="text-lg font-bold dark:text-white mb-2">Face ID</h3>
                     <div id="face-id-status-display" class="mb-2 dark:text-gray-300"></div>
@@ -208,7 +192,6 @@
                     </div>
                 </div>
                 <hr class="my-4 dark:border-gray-600">
-                <!-- Buddy System Section -->
                 <div>
                     <h3 class="text-lg font-bold dark:text-white mb-2">Buddy System</h3>
                     <div id="buddy-system-status"></div>
@@ -218,7 +201,6 @@
                     </div>
                 </div>
                 <hr class="my-4 dark:border-gray-600">
-                <!-- Device Management Section -->
                 <div>
                     <h3 class="text-lg font-bold dark:text-white mb-2">Device Management</h3>
                     <div id="device-list" class="space-y-2"></div>
@@ -251,10 +233,10 @@
             <i class="ri-device-recover-line ri-4x text-yellow-500 mb-4"></i>
             <h2 class="text-2xl font-bold mb-4 dark:text-white">Unrecognized Device</h2>
             <p class="text-gray-600 dark:text-gray-300 mb-6">
-                We don't recognize this device. For your security, please approve this login.
+                For your security, please approve this login.
             </p>
             <div id="device-approval-pending-message" class="hidden my-4 p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-800 dark:text-blue-200">
-                A request has been sent. Please check your other device, or wait for your buddy or an admin to approve.
+                A request has been sent. Please wait for your buddy or an admin to approve.
             </div>
             <div class="space-y-3">
                 <button id="ask-buddy-btn" class="btn-primary w-full">Ask my Buddy for help</button>
