@@ -1,289 +1,377 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    let GIPHY_API_KEY = null;
+    // --- Global State & Config ---
+    if (typeof fpPromise === 'undefined') { console.error("FingerprintJS not loaded!"); return; }
+    let HUGGING_FACE_TOKEN = null;
     try {
-        const response = await fetch('/api/giphy-key');
-        const data = await response.json();
-        GIPHY_API_KEY = data.apiKey;
-    } catch (e) { console.error("Could not fetch Giphy API key."); }
+        const response = await fetch('/api/hf-token');
+        if (response.ok) HUGGING_FACE_TOKEN = (await response.json()).token;
+        else console.error("Could not fetch Hugging Face token.");
+    } catch (e) { console.error("Error fetching Hugging Face token:", e); }
 
     const socket = io({ autoConnect: false });
     let state = { 
         username: null, role: null, nickname: null, icon: null, 
         currentChat: { type: 'channel', id: 'general' },
-        replyingTo: null,
-        relations: { friends: [], blocked: [] },
-        allUsers: {}, activeUsers: {}, channels: {}, dms: {},
-        permissions: {}, currentUserData: {}
+        allUsers: {}, activeUsers: {}, channels: {},
+        securityData: { devices: [], buddy: null, buddyRequests: [], faceId: null, twoFactorEnabled: false }
     };
+    let tempLoginData = null; // To hold login data during 2FA/FaceID checks
+    let currentVisitorId = null;
+    const DATA_API_URL = 'http://localhost:10000';
+    let faceIdStream = null;
 
     // --- Element Selectors ---
-    const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page') };
-    const joinCodeForm = document.getElementById('join-code-form');
+    const pages = { joinCode: document.getElementById('join-code-page'), login: document.getElementById('login-page'), chat: document.getElementById('chat-page'), twoFactor: document.getElementById('two-factor-page') };
     const loginForm = document.getElementById('login-form');
-    const termsModal = document.getElementById('terms-modal');
-    const agreeTermsBtn = document.getElementById('agree-terms-btn');
-    const tutorialModal = document.getElementById('tutorial-modal');
     const messageForm = document.getElementById('message-form');
     const messageInput = document.getElementById('message-input');
     const chatWindow = document.getElementById('chat-window');
-    const userContextMenu = document.getElementById('user-context-menu');
-    const emojiPicker = document.getElementById('emoji-picker');
-    const dmList = document.getElementById('dm-list');
     const channelsList = document.getElementById('channels-list');
     const userListContainer = document.getElementById('user-list-container');
-    const replyPreview = document.getElementById('reply-preview');
-    const replyAuthor = document.getElementById('reply-author');
-    const replyPreviewText = document.getElementById('reply-preview-text');
-    const cancelReplyBtn = document.getElementById('cancel-reply-btn');
     const channelTitle = document.getElementById('channel-title');
     const addChannelBtn = document.getElementById('add-channel-btn');
-    const settingsModal = document.getElementById('settings-modal');
-    const closeSettingsBtn = document.getElementById('close-settings-btn');
-    const userDatabaseBtn = document.getElementById('user-database-btn');
-    const statusSelector = document.getElementById('status-selector');
-    const invisibleOption = document.getElementById('invisible-option');
-    const userDbModal = document.getElementById('user-database-modal');
-    const userDbList = document.getElementById('user-db-list');
-    const closeUserDbBtn = document.getElementById('close-user-db-btn');
-    const userEditModal = document.getElementById('user-edit-modal');
-    const reactionPopup = document.getElementById('reaction-popup');
-    const giphyModal = document.getElementById('giphy-modal');
-    const giphyBtn = document.getElementById('giphy-btn');
-    const closeGiphyBtn = document.getElementById('close-giphy-btn');
-    const giphySearchInput = document.getElementById('giphy-search-input');
-    const giphyResultsGrid = document.getElementById('giphy-results-grid');
-    const chatStatusBanner = document.getElementById('chat-status-banner');
-    const gameContainer = document.getElementById('game-container');
-    const typingIndicator = document.getElementById('typing-indicator');
-    const userProfileModal = document.getElementById('user-profile-modal');
-    const muteModal = document.getElementById('mute-modal');
-    const settingsBtn = document.getElementById('settings-btn');
-    const ownerSettingsTabs = document.getElementById('owner-settings-tabs');
-    const profileTabContent = document.getElementById('profile-tab-content');
-    const preferencesTabContent = document.getElementById('preferences-tab-content');
-    const userManagementTabContent = document.getElementById('user-management-tab-content');
-    const permissionsTabContent = document.getElementById('permissions-tab-content');
-    const auditLogTabContent = document.getElementById('audit-log-tab-content');
-    const permissionsList = document.getElementById('permissions-list');
-    const auditLogList = document.getElementById('audit-log-list');
-    const userManagementList = document.getElementById('user-management-list');
+    const menuToggleBtn = document.getElementById('menu-toggle-btn');
+    const navigationSidebar = document.getElementById('navigation-sidebar');
     
-    // --- Rendering Functions ---
+    // Modals
+    const settingsModal = document.getElementById('settings-modal');
+    const unrecognizedDeviceModal = document.getElementById('unrecognized-device-modal');
+    const faceIdModal = document.getElementById('face-id-modal');
+    const twoFactorSetupModal = document.getElementById('2fa-setup-modal');
 
-    const renderMessage = (message) => {
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add('flex', 'items-start', 'gap-3', 'p-2', 'rounded-lg', 'hover:bg-gray-100', 'dark:hover:bg-gray-800');
-        msgDiv.dataset.messageId = message.id;
+    // Buttons
+    const settingsBtn = document.getElementById('settings-btn');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    
+    // 2FA Elements
+    const twoFactorForm = document.getElementById('2fa-form');
+    const enable2faBtn = document.getElementById('enable-2fa-btn');
+    const disable2faBtn = document.getElementById('disable-2fa-btn');
+    const cancel2faSetupBtn = document.getElementById('cancel-2fa-setup-btn');
+    const twoFactorStatusDisplay = document.getElementById('2fa-status-display');
+    const twoFactorEnableUI = document.getElementById('2fa-enable-ui');
+    const twoFactorEnabledUI = document.getElementById('2fa-enabled-ui');
+    const qrCodeContainer = document.getElementById('2fa-qr-code');
+    const secretKeyContainer = document.getElementById('2fa-secret-key');
+    const setup2faForm = document.getElementById('2fa-setup-form');
 
-        const authorData = state.allUsers[message.author] || {};
-        // **FIX:** Use a working placeholder URL
-        const icon = authorData.icon === 'default' || !authorData.icon 
-            ? `https://placehold.co/40x40/7c3aed/ffffff?text=${message.nickname.charAt(0).toUpperCase()}` 
-            : authorData.icon;
+    // Face ID Elements
+    const faceIdVideo = document.getElementById('face-id-video');
+    const faceIdStatus = document.getElementById('face-id-status');
+    const faceIdOverlay = document.getElementById('face-id-overlay');
+    const faceIdCancelBtn = document.getElementById('face-id-cancel-btn');
+    const faceIdCaptureBtn = document.getElementById('face-id-capture-btn');
+    const enrollFaceIdBtn = document.getElementById('enroll-face-id-btn');
+    const removeFaceIdBtn = document.getElementById('remove-face-id-btn');
+    const faceIdStatusDisplay = document.getElementById('face-id-status-display');
+    const faceIdEnrollUI = document.getElementById('face-id-enroll-ui');
+    const faceIdEnrolledUI = document.getElementById('face-id-enrolled-ui');
 
-        let contentHTML = marked.parse(message.content);
+    // Security Tab Elements
+    const buddySystemStatus = document.getElementById('buddy-system-status');
+    const buddyRequestInput = document.getElementById('buddy-request-input');
+    const sendBuddyRequestBtn = document.getElementById('send-buddy-request-btn');
+    const deviceList = document.getElementById('device-list');
+    const securityTabContent = document.getElementById('security-tab-content');
 
-        msgDiv.innerHTML = `
-            <img src="${icon}" alt="${message.nickname}" class="w-10 h-10 rounded-full">
-            <div class="flex-grow">
-                <div class="flex items-baseline gap-2">
-                    <strong class="dark:text-white">${message.nickname}</strong>
-                    <time class="text-xs text-gray-500 dark:text-gray-400">${new Date(message.timestamp).toLocaleTimeString()}</time>
-                </div>
-                <div class="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">${contentHTML}</div>
-            </div>
-        `;
-        return msgDiv;
+    // --- API Helpers ---
+    const dataApi = {
+        get: (endpoint) => fetch(`${DATA_API_URL}/${endpoint}`).then(res => res.ok ? res.json() : Promise.reject(res)),
+        post: (endpoint, body) => fetch(`${DATA_API_URL}/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(res => res.ok ? res.json() : Promise.reject(res)),
     };
-
-    const renderAllMessages = (messages) => {
-        chatWindow.innerHTML = '';
-        if (messages && messages.length > 0) {
-            messages.forEach(msg => {
-                chatWindow.appendChild(renderMessage(msg));
-            });
-        } else {
-            chatWindow.innerHTML = `<div class="text-center text-gray-500 p-4">No messages yet. Say hello!</div>`;
-        }
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    };
-
-    const renderChannels = () => {
-        channelsList.innerHTML = '';
-        Object.keys(state.channels).forEach(channelId => {
-            const channel = state.channels[channelId];
-            const channelDiv = document.createElement('div');
-            channelDiv.classList.add('px-3', 'py-2', 'rounded-md', 'cursor-pointer', 'hover:bg-gray-300', 'dark:hover:bg-gray-700', 'transition-colors', 'duration-150');
-            if (channelId === state.currentChat.id) {
-                channelDiv.classList.add('bg-blue-500', 'text-white', 'font-semibold');
-            } else {
-                 channelDiv.classList.add('dark:text-gray-300');
+    const huggingFaceApi = {
+        async getEmbedding(blob) {
+            if (!HUGGING_FACE_TOKEN) throw new Error("Hugging Face token not available.");
+            const response = await fetch(
+                "https://api-inference.huggingface.co/models/facebook/dinov2-base",
+                {
+                    headers: { Authorization: `Bearer ${HUGGING_FACE_TOKEN}` },
+                    method: "POST",
+                    body: blob,
+                }
+            );
+            const result = await response.json();
+            if (response.ok && Array.isArray(result) && result.length > 0 && result[0].blob) {
+                 return result[0].blob;
             }
-            channelDiv.textContent = `# ${channelId}`;
-            channelDiv.dataset.channelId = channelId;
-            channelsList.appendChild(channelDiv);
-        });
-    };
-
-    const renderUsers = () => {
-        userListContainer.innerHTML = '';
-        const onlineUsers = Object.keys(state.activeUsers);
-        
-        const categoryDiv = document.createElement('div');
-        categoryDiv.innerHTML = `<h3 class="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase mb-2">Online — ${onlineUsers.length}</h3>`;
-        
-        onlineUsers.forEach(username => {
-            const user = state.activeUsers[username];
-            const userData = state.allUsers[username] || {};
-            // **FIX:** Use a working placeholder URL
-            const icon = userData.icon === 'default' || !userData.icon 
-                ? `https://placehold.co/32x32/7c3aed/ffffff?text=${user.nickname.charAt(0).toUpperCase()}`
-                : userData.icon;
-            
-            const userDiv = document.createElement('div');
-            userDiv.classList.add('flex', 'items-center', 'gap-2', 'p-1.5', 'rounded-md', 'hover:bg-gray-300', 'dark:hover:bg-gray-700', 'cursor-pointer');
-            userDiv.dataset.username = username;
-            
-            userDiv.innerHTML = `
-                <div class="relative">
-                    <img src="${icon}" alt="${user.nickname}" class="w-8 h-8 rounded-full">
-                    <span class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-white dark:border-gray-800"></span>
-                </div>
-                <span class="font-medium text-sm dark:text-gray-200 truncate">${user.nickname}</span>
-            `;
-            categoryDiv.appendChild(userDiv);
-        });
-        userListContainer.appendChild(categoryDiv);
-    };
-
-    // --- Tutorial Content ---
-    const TUTORIALS = {
-        Member: [
-            { title: "Communicating", content: "You can send messages, GIFs, reply to messages, and react to them by long-pressing." },
-            { title: "Branches & DMs", content: "Join different public chat branches or start a private Direct Message by right-clicking a user." },
-            { title: "User Database", content: "Click the 'Users' button to see everyone in the chat, even if they're offline. You can friend, block, or DM them from there." }
-        ],
-        Moderator: [
-            { title: "New Powers!", content: "You've been promoted to Moderator! You now have new abilities to help keep the chat safe." },
-            { title: "Moderation", content: "You can now mute, kick, or ban users by right-clicking their name. You can also delete any message." },
-            { title: "Private Branches", content: "You now have the ability to create private, invitation-only branches for focused conversations." }
-        ]
-    };
-    let currentTutorialStep = 0;
-
-    // --- Core Functions ---
-    const showTutorial = (role) => {
-        const tutorial = TUTORIALS[role];
-        if (!tutorial) return;
-        currentTutorialStep = 0;
-        document.getElementById('tutorial-title').textContent = `New Features for: ${role}`;
-        displayTutorialStep();
-        tutorialModal.classList.remove('hidden');
-    };
-
-    const displayTutorialStep = () => {
-        const role = state.role;
-        const step = TUTORIALS[role][currentTutorialStep];
-        document.getElementById('tutorial-content').innerHTML = `
-            <h3 class="text-xl font-semibold">${step.title}</h3>
-            <p>${step.content}</p>
-        `;
-        document.getElementById('tutorial-pagination').textContent = `${currentTutorialStep + 1} / ${TUTORIALS[role].length}`;
-        document.getElementById('prev-tutorial-btn').style.visibility = currentTutorialStep === 0 ? 'hidden' : 'visible';
-        document.getElementById('next-tutorial-btn').textContent = currentTutorialStep === TUTORIALS[role].length - 1 ? 'Finish' : 'Next';
-    };
-
-    // --- Event Handlers ---
-    const handleJoinAttempt = async () => {
-        const joinError = document.getElementById('join-error');
-        joinError.textContent = '';
-        const code = document.getElementById('join-code-input').value;
-        try {
-            const response = await fetch('/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message);
-            pages.joinCode.classList.replace('active', 'hidden');
-            pages.login.classList.replace('hidden', 'active');
-        } catch (error) {
-            joinError.textContent = error.message;
+            throw new Error(result.error || "Failed to get face embedding from API response.");
         }
     };
 
-    joinCodeForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        handleJoinAttempt();
-    });
+    // --- Rendering Functions ---
+    const renderSecuritySettings = () => {
+        const has2fa = state.securityData && state.securityData.twoFactorEnabled;
+        twoFactorStatusDisplay.textContent = has2fa ? 'Authenticator app is connected.' : 'Authenticator app is not connected.';
+        twoFactorEnableUI.classList.toggle('hidden', has2fa);
+        twoFactorEnabledUI.classList.toggle('hidden', !has2fa);
 
-    loginForm.addEventListener('submit', async (e) => {
+        const hasFaceId = state.securityData && state.securityData.faceId;
+        faceIdStatusDisplay.textContent = hasFaceId ? 'Face ID is enabled and active.' : 'Face ID is not set up.';
+        faceIdEnrollUI.classList.toggle('hidden', hasFaceId);
+        faceIdEnrolledUI.classList.toggle('hidden', !hasFaceId);
+
+        buddySystemStatus.innerHTML = '';
+        if (state.securityData.buddy) {
+            buddySystemStatus.innerHTML = `<p class="dark:text-gray-300">Your buddy is <strong>${state.securityData.buddy}</strong>.</p>`;
+        } else if (state.securityData.buddyRequests && state.securityData.buddyRequests.length > 0) {
+            const request = state.securityData.buddyRequests[0];
+            buddySystemStatus.innerHTML = `
+                <div class="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                    <p class="dark:text-blue-200">You have a buddy request from <strong>${request.from}</strong>.</p>
+                    <div class="mt-2 flex gap-2">
+                        <button class="btn-primary respond-buddy-request" data-from="${request.from}" data-action="accept">Accept</button>
+                        <button class="btn-secondary respond-buddy-request" data-from="${request.from}" data-action="decline">Decline</button>
+                    </div>
+                </div>`;
+        } else {
+            buddySystemStatus.innerHTML = `<p class="text-gray-500 dark:text-gray-400">You don't have a buddy yet.</p>`;
+        }
+
+        deviceList.innerHTML = '';
+        if (state.securityData.devices) {
+            state.securityData.devices.forEach(device => {
+                const isCurrent = device.id === currentVisitorId;
+                const deviceDiv = document.createElement('div');
+                deviceDiv.classList.add('flex', 'justify-between', 'items-center', 'p-2', 'bg-gray-100', 'dark:bg-gray-700', 'rounded-md');
+                deviceDiv.innerHTML = `
+                    <div>
+                        <span class="font-semibold dark:text-white">${device.name}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">${isCurrent ? '(This Device)' : ''}</span>
+                    </div>
+                    ${!isCurrent ? '<button class="btn-danger text-xs remove-device-btn" data-id="' + device.id + '">Remove</button>' : ''}
+                `;
+                deviceList.appendChild(deviceDiv);
+            });
+        }
+    };
+
+    // --- Login Flow ---
+    const handleLoginAttempt = async (e) => {
         e.preventDefault();
         const loginError = document.getElementById('login-error');
         loginError.textContent = '';
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
+
         try {
-            const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message);
-            socket.auth = { username: data.username, role: data.role, nickname: data.nickname };
-            socket.connect();
+            const loginResponse = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+            const loginData = await loginResponse.json();
+            if (!loginResponse.ok) throw new Error(loginData.message);
+            
+            tempLoginData = loginData;
+            state.username = username;
+
+            try {
+                state.securityData = await dataApi.get(`security/${username}`);
+            } catch (err) { 
+                state.securityData = { devices: [], buddy: null, buddyRequests: [], faceId: null, twoFactorEnabled: false };
+            }
+
+            if (state.securityData.twoFactorEnabled) {
+                pages.login.classList.replace('active', 'hidden');
+                pages.twoFactor.classList.replace('hidden', 'active');
+                document.getElementById('2fa-code-input').focus();
+            } else {
+                await proceedWithPostPasswordAuth(loginData);
+            }
         } catch (error) {
             loginError.textContent = error.message;
         }
-    });
+    };
 
-    agreeTermsBtn.addEventListener('click', () => {
-        socket.emit('accept-terms');
-        termsModal.classList.add('hidden');
-        if (state.currentUserData.lastSeenRole !== state.role) {
-            showTutorial(state.role);
-        }
-    });
-
-    document.getElementById('next-tutorial-btn').addEventListener('click', () => {
-        if (currentTutorialStep < TUTORIALS[state.role].length - 1) {
-            currentTutorialStep++;
-            displayTutorialStep();
-        } else {
-            tutorialModal.classList.add('hidden');
-            socket.emit('tutorial-seen', { role: state.role });
-            state.currentUserData.lastSeenRole = state.role;
-        }
-    });
-
-    messageForm.addEventListener('submit', (e) => {
+    const handle2faVerification = async (e) => {
         e.preventDefault();
-        const message = messageInput.value.trim();
-        if (!message) return;
+        const errorEl = document.getElementById('2fa-error');
+        errorEl.textContent = '';
+        const code = document.getElementById('2fa-code-input').value;
 
-        if (state.currentChat.type === 'channel') {
-            socket.emit('send-message', { channel: state.currentChat.id, message, replyingTo: state.replyingTo });
-        } else {
-            socket.emit('send-dm', { recipient: state.currentChat.id, message });
+        try {
+            await dataApi.post('login/2fa', { username: state.username, token: code });
+            await proceedWithPostPasswordAuth(tempLoginData);
+        } catch (err) {
+            errorEl.textContent = 'Invalid code. Please try again.';
         }
-        
-        messageInput.value = '';
-        state.replyingTo = null;
-        document.getElementById('reply-preview').classList.add('hidden');
-    });
+    };
     
-    // **NEW:** Add Branch button handler
-    addChannelBtn.addEventListener('click', () => {
-        const channelName = prompt("Enter a name for the new branch:");
-        if (channelName && channelName.trim()) {
-            socket.emit('create-channel', { channelName: channelName.trim() });
+    const proceedWithPostPasswordAuth = async (loginData) => {
+        const fp = await fpPromise;
+        const result = await fp.get();
+        currentVisitorId = result.visitorId;
+
+        if (state.securityData.faceId) {
+            await startFaceIdVerification(loginData);
+        } else {
+            const isDeviceRecognized = state.securityData.devices.some(d => d.id === currentVisitorId);
+            if (isDeviceRecognized || state.securityData.devices.length === 0) {
+                if (state.securityData.devices.length === 0) {
+                    await dataApi.post(`security/${state.username}/devices`, { id: currentVisitorId, name: 'Initial Device' });
+                }
+                connectToChat(loginData);
+            } else {
+                unrecognizedDeviceModal.classList.remove('hidden');
+            }
+        }
+    };
+
+    const startFaceIdVerification = async (loginData) => {
+        pages.login.classList.replace('active', 'hidden');
+        pages.twoFactor.classList.replace('active', 'hidden');
+        faceIdModal.classList.remove('hidden');
+        if (await startWebcam(faceIdVideo)) {
+            faceIdOverlay.classList.add('hidden');
+            faceIdCaptureBtn.onclick = async () => {
+                faceIdStatus.textContent = 'Verifying...';
+                faceIdOverlay.classList.remove('hidden');
+                const blob = await captureImageBlob(faceIdVideo);
+                try {
+                    const currentEmbedding = await huggingFaceApi.getEmbedding(blob);
+                    const storedEmbedding = state.securityData.faceId;
+                    const similarity = cosineSimilarity(currentEmbedding, storedEmbedding);
+                    
+                    if (similarity >= 0.51) {
+                        faceIdStatus.textContent = 'Success!';
+                        setTimeout(() => {
+                            stopWebcam();
+                            connectToChat(loginData);
+                        }, 1000);
+                    } else {
+                        faceIdStatus.textContent = 'Match Failed. Try again.';
+                        setTimeout(() => faceIdOverlay.classList.add('hidden'), 2000);
+                    }
+                } catch (err) {
+                    console.error("Face verification error:", err);
+                    faceIdStatus.textContent = 'Error. Please try again.';
+                    setTimeout(() => faceIdOverlay.classList.add('hidden'), 2000);
+                }
+            };
+        }
+    };
+
+    const connectToChat = (loginData) => {
+        unrecognizedDeviceModal.classList.add('hidden');
+        faceIdModal.classList.add('hidden');
+        pages.login.classList.replace('active', 'hidden');
+        pages.twoFactor.classList.replace('active', 'hidden');
+        socket.auth = { username: loginData.username, role: loginData.role, nickname: loginData.nickname };
+        socket.connect();
+    };
+
+
+    // --- Event Handlers ---
+    loginForm.addEventListener('submit', handleLoginAttempt);
+    twoFactorForm.addEventListener('submit', handle2faVerification);
+
+    enable2faBtn.addEventListener('click', async () => {
+        try {
+            const setupData = await dataApi.post(`security/${state.username}/2fa/setup`, {});
+            qrCodeContainer.innerHTML = '';
+            qrCodeContainer.innerHTML = setupData.qrCode;
+            secretKeyContainer.textContent = setupData.secret;
+            twoFactorSetupModal.classList.remove('hidden');
+        } catch (err) {
+            alert('Could not start 2FA setup. Please try again later.');
         }
     });
 
-    // **NEW:** Channel click handler
-    channelsList.addEventListener('click', (e) => {
-        const channelDiv = e.target.closest('[data-channel-id]');
-        if (channelDiv) {
-            const channelId = channelDiv.dataset.channelId;
-            if (channelId !== state.currentChat.id) {
-                state.currentChat = { type: 'channel', id: channelId };
-                channelTitle.textContent = `# ${channelId}`;
-                renderChannels(); // Re-render to update active highlight
-                renderAllMessages(state.channels[channelId]?.messages || []);
+    setup2faForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const token = document.getElementById('2fa-setup-code').value;
+        try {
+            await dataApi.post(`security/${state.username}/2fa/verify`, { token });
+            alert('2FA enabled successfully!');
+            state.securityData.twoFactorEnabled = true;
+            twoFactorSetupModal.classList.add('hidden');
+            renderSecuritySettings();
+        } catch (err) {
+            alert('Verification failed. The code was incorrect. Please try again.');
+        }
+    });
+
+    disable2faBtn.addEventListener('click', async () => {
+        if (confirm("Are you sure you want to disable Two-Factor Authentication?")) {
+            try {
+                await dataApi.post(`security/${state.username}/2fa/disable`, {});
+                state.securityData.twoFactorEnabled = false;
+                renderSecuritySettings();
+            } catch (err) {
+                alert("Failed to disable 2FA.");
+            }
+        }
+    });
+
+    cancel2faSetupBtn.addEventListener('click', () => {
+        twoFactorSetupModal.classList.add('hidden');
+    });
+
+    settingsBtn.addEventListener('click', () => { renderSecuritySettings(); settingsModal.classList.remove('hidden'); });
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    faceIdCancelBtn.addEventListener('click', () => { stopWebcam(); faceIdModal.classList.add('hidden'); });
+
+    enrollFaceIdBtn.addEventListener('click', async () => {
+        alert("Please position your face clearly in the frame for enrollment.");
+        if (await startWebcam(faceIdVideo)) {
+            document.getElementById('face-id-title').textContent = "Face ID Enrollment";
+            faceIdCaptureBtn.textContent = "Enroll My Face";
+            faceIdModal.classList.remove('hidden');
+            
+            faceIdCaptureBtn.onclick = async () => {
+                faceIdStatus.textContent = 'Processing...';
+                faceIdOverlay.classList.remove('hidden');
+                const blob = await captureImageBlob(faceIdVideo);
+                try {
+                    const embedding = await huggingFaceApi.getEmbedding(blob);
+                    await dataApi.post(`security/${state.username}/faceid`, { faceId: embedding });
+                    state.securityData.faceId = embedding;
+                    faceIdStatus.textContent = 'Enrolled!';
+                    setTimeout(() => {
+                        stopWebcam();
+                        faceIdModal.classList.add('hidden');
+                        renderSecuritySettings();
+                    }, 1500);
+                } catch (err) {
+                    alert('Enrollment failed. Please try again.');
+                    faceIdOverlay.classList.add('hidden');
+                }
+            };
+        }
+    });
+
+    removeFaceIdBtn.addEventListener('click', async () => {
+        if (confirm("Are you sure you want to remove Face ID?")) {
+            try {
+                await dataApi.post(`security/${state.username}/faceid/remove`, {});
+                state.securityData.faceId = null;
+                renderSecuritySettings();
+            } catch (err) { alert("Failed to remove Face ID."); }
+        }
+    });
+
+    sendBuddyRequestBtn.addEventListener('click', async () => {
+        const buddyUsername = buddyRequestInput.value.trim();
+        if (!buddyUsername) return;
+        try {
+            await dataApi.post(`buddy/request`, { from: state.username, to: buddyUsername });
+            alert('Buddy request sent!');
+            buddyRequestInput.value = '';
+        } catch (err) {
+            alert('Failed to send request. Make sure the username is correct.');
+        }
+    });
+
+    securityTabContent.addEventListener('click', async (e) => {
+        if (e.target.matches('.respond-buddy-request')) {
+            const from = e.target.dataset.from;
+            const action = e.target.dataset.action;
+            try {
+                const updatedSecurityData = await dataApi.post('buddy/respond', { to: state.username, from, action });
+                state.securityData = updatedSecurityData;
+                renderSecuritySettings();
+            } catch (err) {
+                alert('Failed to respond to request.');
             }
         }
     });
@@ -291,52 +379,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Socket Handlers ---
     socket.on('join-successful', (data) => {
         state = { ...state, ...data };
-        
-        pages.login.classList.replace('active', 'hidden');
         pages.chat.classList.replace('hidden', 'flex');
-        
-        renderChannels();
-        renderUsers();
-        renderAllMessages(state.channels[state.currentChat.id]?.messages || []);
-        channelTitle.textContent = `# ${state.currentChat.id}`;
-        
-        if (!state.currentUserData.hasAgreedToTerms) {
-            termsModal.classList.remove('hidden');
-        } else if (state.currentUserData.lastSeenRole !== state.role) {
-            showTutorial(state.role);
-        }
-    });
-
-    socket.on('new-message', ({ channel, message }) => {
-        if (state.channels[channel]) {
-            state.channels[channel].messages.push(message);
-        }
-        if (channel === state.currentChat.id) {
-            chatWindow.appendChild(renderMessage(message));
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-    });
-
-    socket.on('update-user-list', ({ activeUsers, allUsersData }) => {
-        state.activeUsers = activeUsers;
-        state.allUsers = { ...state.allUsers, ...allUsersData };
-        renderUsers();
-    });
-
-    // **NEW:** Handle channel updates from server
-    socket.on('channels-updated', (channels) => {
-        state.channels = channels;
-        renderChannels();
-    });
-
-    socket.on('system-message', ({ text, type = 'error' }) => {
-        // You can create a more sophisticated notification system
-        alert(text); 
-    });
-
-    socket.on('connect_error', (err) => {
-        console.error("Connection failed:", err.message);
-        const loginError = document.getElementById('login-error');
-        loginError.textContent = "Could not connect to the server.";
+        pages.login.classList.replace('active', 'hidden');
+        pages.twoFactor.classList.replace('active', 'hidden');
+        // Initial render calls for chat UI
     });
 });
