@@ -1,7 +1,7 @@
 {
-  "name": "chat-space-final-v26",
+  "name": "chat-space-final",
   "version": "1.0.0",
-  "description": "A real-time chat application with roles, a bot, and advanced moderation",
+  "description": "A real-time chat application with advanced security",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,11 +9,10 @@
   "dependencies": {
     "bcrypt": "^5.1.1",
     "express": "^4.19.2",
-    "lowdb": "^7.0.1",
-    "node-cron": "^3.0.3",
+    "pg": "^8.11.3",
+    "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
+    "speakeasy": "^2.0.0",
     "uuid": "^9.0.1"
-  },
-  "author": "",
-  "license": "ISC"
+  }
 }
