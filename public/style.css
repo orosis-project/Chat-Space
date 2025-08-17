@@ -1,122 +1,34 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-body {
-    font-family: 'Inter', sans-serif;
-}
+body { font-family: 'Inter', sans-serif; }
 
-.page.active {
-    display: flex;
-}
+.page { @apply w-full h-full flex items-center justify-center; }
+.page.active { display: flex; }
+.page.hidden { display: none; }
 
-.card {
-    @apply w-full max-w-sm bg-white/10 dark:bg-gray-900/50 backdrop-blur-2xl p-8 rounded-2xl shadow-2xl;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* Auth Card Styles */
+.auth-card { @apply w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden; }
+.input { @apply w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition; }
+.btn-primary { @apply w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md; }
+.auth-message { @apply text-center h-5 mb-4 text-sm font-semibold; }
+.auth-message.error { @apply text-red-500; }
 
-.input {
-    @apply w-full px-4 py-3 bg-gray-100/50 dark:bg-gray-800/50 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition;
-}
+/* New Banner Style */
+.banner { @apply flex items-center gap-3 p-3 bg-blue-500/10 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400 text-sm; }
+.banner.hidden { display: none; }
 
-.btn-primary {
-    @apply bg-blue-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-600/20;
-}
+/* New Tab Styles */
+.auth-tabs { @apply grid grid-cols-2; }
+.auth-tab { @apply w-full py-3 text-center font-semibold text-gray-500 dark:text-gray-400 border-b-2 border-transparent transition; }
+.auth-tab.active { @apply text-blue-500 border-blue-500; }
 
-.btn-secondary {
-    @apply bg-gray-200/50 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200 font-bold py-3 px-5 rounded-lg hover:bg-gray-300/70 dark:hover:bg-gray-600/70 transition;
-}
-.btn-danger {
-    @apply bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition shadow-lg shadow-red-600/20 text-sm;
-}
+.auth-form { @apply px-8 pb-8; }
+.auth-form.active { display: block; }
+.auth-form.hidden { display: none; }
 
-
-.sidebar {
-    @apply w-64 bg-black/10 dark:bg-black/20 backdrop-blur-2xl p-4 flex flex-col flex-shrink-0 transition-transform duration-300 ease-in-out;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-title {
-    @apply text-lg font-bold dark:text-gray-200 px-3;
-}
-
-.sidebar-icon-btn {
-    @apply p-2 rounded-lg transition-colors text-gray-400 hover:bg-white/10 dark:hover:bg-gray-800/60 hover:text-white;
-}
-
-.sidebar-btn-full {
-    @apply flex items-center gap-3 w-full px-3 py-2.5 rounded-lg font-semibold text-sm text-gray-300 hover:bg-white/10 dark:hover:bg-gray-800/60 hover:text-white transition-colors;
-}
-
-.header {
-    @apply p-3 border-b border-gray-200/10 dark:border-gray-800/50 flex items-center justify-between flex-shrink-0;
-}
-
-@media (max-width: 767px) {
-    .sidebar {
-        @apply absolute top-0 left-0 h-full z-40 -translate-x-full;
-    }
-    #user-list-sidebar {
-        @apply left-auto right-0 -translate-x-0 translate-x-full;
-    }
-    .sidebar.is-open {
-        @apply translate-x-0;
-    }
-}
-
-.modal-container { 
-    position: fixed; 
-    inset: 0; 
-    background-color: rgba(0,0,0,0.5); 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    z-index: 50; 
-    backdrop-filter: blur(8px);
-    animation: fadeIn 0.3s ease-out;
-}
-.modal-container.fade-out {
-    animation: fadeOut 0.3s ease-in forwards;
-}
-
-.modal-content { 
-    @apply bg-gray-100 dark:bg-gray-900 p-8 rounded-2xl shadow-2xl;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    width: 90%; 
-    max-width: 32rem; 
-    animation: scaleIn 0.3s ease-out;
-}
-.modal-container.fade-out .modal-content {
-    animation: scaleOut 0.3s ease-in forwards;
-}
-
-.modal-close-btn {
-    @apply p-2 rounded-full transition-colors text-gray-400 hover:bg-white/10 dark:hover:bg-gray-800/60 hover:text-white;
-}
-
-.setting-tab {
-    @apply px-3 py-2 whitespace-nowrap font-semibold text-gray-500 dark:text-gray-400;
-    border-bottom: 2px solid transparent;
-}
-.setting-tab.active {
-    @apply text-blue-500 border-blue-500;
-}
-.setting-tab-content { display: none; }
-.setting-tab-content.active { display: block; }
-
-.modal-input {
-    @apply w-full px-4 py-2 bg-gray-200/80 dark:bg-gray-800/80 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition;
-}
-
-.toast {
-    @apply text-white font-semibold py-2 px-4 rounded-lg shadow-lg;
-    animation: slideIn 0.5s ease-out forwards;
-}
-.toast-fade-out {
-    animation: slideOut 0.5s ease-in forwards;
-}
-
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-@keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@keyframes scaleOut { from { transform: scale(1); opacity: 1; } to { transform: scale(0.9); opacity: 0; } }
+/* Toast Notification */
+.toast { @apply text-white font-semibold py-2 px-4 rounded-lg shadow-lg; animation: slideIn 0.5s ease-out forwards; }
+.toast.success { @apply bg-green-500; }
+.toast-fade-out { animation: slideOut 0.5s ease-in forwards; }
 @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-@keyframes slideOut { to { transform: translateX(120%); } }
+@keyframes slideOut { to { transform: translateX(120%); opacity: 0; } }
