@@ -5,62 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Space</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-100 dark:bg-black font-sans">
-    <div id="app-container" class="w-full h-screen flex items-center justify-center p-4">
-        <!-- Login & Register Page -->
-        <div id="auth-page" class="page active">
-            <div class="auth-card">
-                <!-- Banner for Request-Only Mode -->
-                <div id="request-banner" class="banner hidden">
-                    <i class="ri-information-line"></i>
-                    <span>Accounts are currently request-only.</span>
-                </div>
-
-                <!-- Tabs -->
-                <div class="auth-tabs">
-                    <button id="login-tab-btn" class="auth-tab active">Sign In</button>
-                    <button id="register-tab-btn" class="auth-tab">Request Account</button>
-                </div>
-
-                <div class="pt-6">
-                    <div id="auth-error" class="auth-message error"></div>
-                    <!-- Login Form -->
-                    <form id="login-form" class="space-y-4 auth-form active">
-                        <input type="text" id="login-username" placeholder="Username" class="input" required>
-                        <input type="password" id="login-password" placeholder="Password" class="input" required>
-                        <button type="submit" class="btn-primary w-full">Sign In</button>
-                    </form>
-                    <!-- Register Form -->
-                    <form id="register-form" class="space-y-4 auth-form hidden">
-                        <input type="text" id="register-username" placeholder="Username" class="input" required>
-                        <input type="password" id="register-password" placeholder="Password" class="input" required>
-                        <button type="submit" class="btn-primary w-full">Submit Request</button>
+<body class="bg-gray-100 font-sans flex items-center justify-center min-h-screen">
+    <div id="app-container" class="w-full max-w-md">
+        <!-- Join Code Page -->
+        <div id="join-code-page" class="page active">
+            <div class="card">
+                <div class="card-content">
+                    <h1 class="card-title">Chat Space</h1>
+                    <p class="card-subtitle">Enter the join code to continue.</p>
+                    <div id="join-error" class="error-message"></div>
+                    <form id="join-code-form" class="space-y-6">
+                        <input type="text" id="join-code-input" placeholder="Join Code" class="input-field" required>
+                        <button type="submit" class="btn-primary">Enter</button>
                     </form>
                 </div>
             </div>
         </div>
 
-        <!-- Pending Approval Page -->
+        <!-- Login / Register Page (Initially Hidden) -->
+        <div id="auth-page" class="page hidden">
+            <!-- The tabbed auth UI from the previous stable version will go here -->
+        </div>
+
+        <!-- Pending Approval Page (Initially Hidden) -->
         <div id="pending-page" class="page hidden">
-            <div class="auth-card text-center">
-                <i class="ri-time-line ri-4x text-blue-500 mb-4"></i>
-                <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Account Requested</h1>
-                <p class="text-gray-500 dark:text-gray-400 mt-4">Your account is pending approval. You will receive a notification on this page when your status is updated.</p>
-                <div id="pending-notification" class="mt-4 font-semibold"></div>
-            </div>
-        </div>
-
-        <!-- Chat Page -->
-        <div id="chat-page" class="page hidden">
-            <!-- Chat UI -->
+            <!-- The pending UI from the previous stable version will go here -->
         </div>
     </div>
     
-    <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-3"></div>
     <script src="main.js"></script>
 </body>
 </html>
