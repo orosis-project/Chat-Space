@@ -1,34 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
-body { font-family: 'Inter', sans-serif; }
+body {
+    font-family: 'Inter', sans-serif;
+}
 
-.page { @apply w-full h-full flex items-center justify-center; }
-.page.active { display: flex; }
-.page.hidden { display: none; }
+.page { display: none; }
+.page.active { display: block; }
 
-/* Auth Card Styles */
-.auth-card { @apply w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden; }
-.input { @apply w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition; }
-.btn-primary { @apply w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md; }
-.auth-message { @apply text-center h-5 mb-4 text-sm font-semibold; }
-.auth-message.error { @apply text-red-500; }
+.card {
+    @apply bg-white rounded-2xl shadow-lg overflow-hidden;
+}
 
-/* New Banner Style */
-.banner { @apply flex items-center gap-3 p-3 bg-blue-500/10 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400 text-sm; }
-.banner.hidden { display: none; }
+.card-content {
+    @apply p-8 sm:p-10;
+}
 
-/* New Tab Styles */
-.auth-tabs { @apply grid grid-cols-2; }
-.auth-tab { @apply w-full py-3 text-center font-semibold text-gray-500 dark:text-gray-400 border-b-2 border-transparent transition; }
-.auth-tab.active { @apply text-blue-500 border-blue-500; }
+.card-title {
+    @apply text-center text-3xl font-bold text-gray-800;
+}
 
-.auth-form { @apply px-8 pb-8; }
-.auth-form.active { display: block; }
-.auth-form.hidden { display: none; }
+.card-subtitle {
+    @apply text-center text-gray-500 mt-2 mb-6;
+}
 
-/* Toast Notification */
-.toast { @apply text-white font-semibold py-2 px-4 rounded-lg shadow-lg; animation: slideIn 0.5s ease-out forwards; }
-.toast.success { @apply bg-green-500; }
-.toast-fade-out { animation: slideOut 0.5s ease-in forwards; }
-@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-@keyframes slideOut { to { transform: translateX(120%); opacity: 0; } }
+.input-field {
+    @apply w-full px-4 py-3 bg-gray-100 text-gray-700 text-center rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition;
+}
+
+.btn-primary {
+    @apply w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-md;
+}
+
+.error-message {
+    @apply text-center h-5 mb-4 text-sm font-semibold text-red-500;
+}
