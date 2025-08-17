@@ -9,10 +9,11 @@
   "dependencies": {
     "bcrypt": "^5.1.1",
     "express": "^4.19.2",
+    "geoip-lite": "^1.4.10",
+    "node-cron": "^3.0.3",
     "pg": "^8.11.3",
-    "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
     "speakeasy": "^2.0.0",
-    "uuid": "^9.0.1"
+    "useragent": "^2.3.0"
   }
 }
