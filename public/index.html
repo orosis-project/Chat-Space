@@ -1,107 +1,66 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Space</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-      const fpPromise = import('https://fpjscdn.net/v3/pwUaaQ43Ak0S6CjsUAsc')
-        .then(FingerprintJS => FingerprintJS.load())
-    </script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-100 dark:bg-black font-sans antialiased overflow-hidden">
-    <div id="app-container" class="w-full h-screen relative flex items-center justify-center">
-        <div id="chat-background" class="absolute inset-0 transition-all duration-500 bg-cover bg-center opacity-30"></div>
-        
-        <div id="join-code-page" class="page active z-10 flex flex-col items-center justify-center p-4">
-             <div class="card text-center">
-                <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">Chat Space</h1>
-                <p class="text-gray-500 dark:text-gray-400 mb-6">Enter the join code to continue.</p>
-                <div id="join-error" class="text-red-500 mb-4 h-5 font-semibold"></div>
-                <form id="join-code-form" class="space-y-4">
-                    <input type="text" id="join-code-input" placeholder="Join Code" class="input text-center tracking-widest font-bold text-lg" required>
-                    <button type="submit" class="btn-primary w-full">Enter</button>
-                </form>
-            </div>
-        </div>
+<body class="bg-gray-100 dark:bg-black font-sans">
+    <div id="app-container" class="w-full h-screen flex items-center justify-center p-4">
+        <!-- Login & Register Page -->
+        <div id="auth-page" class="page active">
+            <div class="auth-card">
+                <!-- Banner for Request-Only Mode -->
+                <div id="request-banner" class="banner hidden">
+                    <i class="ri-information-line"></i>
+                    <span>Accounts are currently request-only.</span>
+                </div>
 
-        <div id="login-page" class="page hidden z-10 flex flex-col items-center justify-center p-4">
-             <div class="card">
-                <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Welcome Back</h1>
-                    <p class="text-gray-500 dark:text-gray-400 mt-2">Sign in or request an account.</p>
+                <!-- Tabs -->
+                <div class="auth-tabs">
+                    <button id="login-tab-btn" class="auth-tab active">Sign In</button>
+                    <button id="register-tab-btn" class="auth-tab">Request Account</button>
                 </div>
-                <div id="login-error" class="text-red-500 text-center mb-4 h-5 font-semibold"></div>
-                <form id="login-form" class="space-y-6">
-                    <div class="relative"><i class="ri-user-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" id="login-username" placeholder="Username" class="input pl-12" required></div>
-                    <div class="relative"><i class="ri-lock-password-line ri-lg absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="password" id="login-password" placeholder="Password" class="input pl-12" required></div>
-                    <button type="submit" class="btn-primary w-full">Login / Request Account</button>
-                </form>
-            </div>
-        </div>
-        
-        <div id="two-factor-page" class="page hidden z-10 flex flex-col items-center justify-center p-4">
-             <div class="card text-center">
-                <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Verification Required</h1>
-                <p class="text-gray-500 dark:text-gray-400 mb-6">Enter the code from your authenticator app.</p>
-                <div id="2fa-error" class="text-red-500 mb-4 h-5 font-semibold"></div>
-                <form id="2fa-form">
-                    <input type="text" id="2fa-code-input" placeholder="6-Digit Code" maxlength="6" class="input text-center tracking-[0.5em] font-bold text-2xl" required>
-                    <button type="submit" class="btn-primary w-full mt-4">Verify</button>
-                </form>
-            </div>
-        </div>
 
-        <div id="chat-page" class="page hidden w-full h-full z-10 flex">
-            <aside id="navigation-sidebar" class="sidebar">
-                <div class="flex-shrink-0">
-                    <div class="flex justify-between items-center mb-2">
-                        <h2 class="sidebar-title">Branches</h2>
-                        <button id="add-channel-btn" class="sidebar-icon-btn"><i class="ri-add-line"></i></button>
-                    </div>
-                    <div id="channels-list" class="space-y-1 overflow-y-auto max-h-48"></div>
-                </div>
-                <div class="flex-grow mt-4 pt-4 border-t border-gray-200/10 dark:border-gray-800/50 overflow-y-auto">
-                     <h2 class="sidebar-title">Direct Messages</h2>
-                     <div id="dm-list" class="space-y-1"></div>
-                </div>
-                <div class="mt-auto flex-shrink-0 space-y-2">
-                    <button id="user-database-btn" class="sidebar-btn-full"><i class="ri-group-line"></i><span>Users</span></button>
-                    <button id="settings-btn" class="sidebar-btn-full"><i class="ri-settings-3-line"></i><span>Settings</span></button>
-                </div>
-            </aside>
-            <main id="main-chat-area" class="flex-grow flex flex-col bg-white/5 dark:bg-gray-900/30 backdrop-blur-xl">
-                <header class="header">
-                    <div class="flex items-center gap-4">
-                        <button id="menu-toggle-btn" class="sidebar-icon-btn md:hidden"><i class="ri-menu-line ri-lg"></i></button>
-                        <h1 id="channel-title" class="text-xl font-bold dark:text-white"># general</h1>
-                    </div>
-                </header>
-                <div id="chat-window" class="flex-grow p-4 overflow-y-auto"></div>
-                <footer class="p-4 border-t border-gray-200/10 dark:border-gray-800/50 flex-shrink-0">
-                    <div id="typing-indicator" class="h-5 text-sm italic text-gray-500 dark:text-gray-400"></div>
-                    <form id="message-form" class="flex items-center gap-3">
-                        <button type="button" id="giphy-btn" class="sidebar-icon-btn text-xl"><i class="ri-gif-line"></i></button>
-                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="input flex-grow">
-                        <button type="submit" class="btn-primary !p-3"><i class="ri-send-plane-2-fill ri-lg"></i></button>
+                <div class="pt-6">
+                    <div id="auth-error" class="auth-message error"></div>
+                    <!-- Login Form -->
+                    <form id="login-form" class="space-y-4 auth-form active">
+                        <input type="text" id="login-username" placeholder="Username" class="input" required>
+                        <input type="password" id="login-password" placeholder="Password" class="input" required>
+                        <button type="submit" class="btn-primary w-full">Sign In</button>
                     </form>
-                </footer>
-            </main>
-            <aside id="user-list-sidebar" class="sidebar">
-                <h2 class="sidebar-title">Online Users</h2>
-                <div id="user-list-container"></div>
-            </aside>
+                    <!-- Register Form -->
+                    <form id="register-form" class="space-y-4 auth-form hidden">
+                        <input type="text" id="register-username" placeholder="Username" class="input" required>
+                        <input type="password" id="register-password" placeholder="Password" class="input" required>
+                        <button type="submit" class="btn-primary w-full">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Approval Page -->
+        <div id="pending-page" class="page hidden">
+            <div class="auth-card text-center">
+                <i class="ri-time-line ri-4x text-blue-500 mb-4"></i>
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Account Requested</h1>
+                <p class="text-gray-500 dark:text-gray-400 mt-4">Your account is pending approval. You will receive a notification on this page when your status is updated.</p>
+                <div id="pending-notification" class="mt-4 font-semibold"></div>
+            </div>
+        </div>
+
+        <!-- Chat Page -->
+        <div id="chat-page" class="page hidden">
+            <!-- Chat UI -->
         </div>
     </div>
     
-    <div id="modal-root"></div>
     <div id="toast-container" class="fixed top-5 right-5 z-[100] space-y-3"></div>
-    
     <script src="main.js"></script>
 </body>
 </html>
