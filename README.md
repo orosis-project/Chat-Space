@@ -1,89 +1,89 @@
-Chat Space: The Definitive Edition
-Welcome to Chat Space, a feature-rich, real-time chat application engineered for security, performance, and a sleek user experience. Built with a robust Node.js and PostgreSQL backend, this application provides a persistent, single-room chat environment with a powerful suite of modern security and moderation tools.
+minnit.chat Clone: A Secure & Interactive Chat Application
+This project is a full-stack, real-time chat application inspired by the features of minnit.chat. It is designed with a focus on a clean, interactive user interface and a multi-layered security system.
 
-Core Chat Features
-Real-Time Messaging: Instantaneous communication powered by Socket.IO.
+Features Overview
+Real-Time Messaging: Instant messaging using Socket.IO.
 
-Public & Private Branches: Create public channels for everyone or private, invitation-only branches for focused discussions.
+Giphy Integration: Search for and send animated GIFs.
 
-Direct Messaging: Initiate secure, one-on-one conversations with any other user.
+Polls: Create and vote on real-time polls.
 
-Typing Indicators: See when other users are actively composing a message in the current channel.
+User List: See a list of all connected users.
 
-GIPHY Integration: Liven up conversations by searching for and sending GIFs directly in the chat.
+Authentication & Security:
 
-Markdown Support: Format your messages with Markdown for bold, italics, code blocks, and more.
+Join Code: A secret HMS code is required for initial access.
 
-Advanced Security Suite
-Chat Space is built with a multi-layered security architecture to protect user accounts and ensure a safe environment.
+Multi-Step Login: A staged login process with additional security checks.
 
-Account Approval System: New user registrations are not automatically accepted. An Owner or Co-Owner must approve each new account request from the User Database panel, preventing unauthorized access.
+2FA (Simulated): A system for implementing Two-Factor Authentication using an authenticator app.
 
-Device Fingerprinting (Computer Recognition): The application creates a unique, secure fingerprint for each user's device. Logins from unrecognized devices are flagged and require approval via the Buddy System or an Owner.
+Device Verification (Simulated): Identifies and remembers known devices using FingerprintJS.
 
-Fingerprint-Based Banning: When a user is banned, their device's unique fingerprint is also banned for the specified duration, preventing them from simply creating a new account on the same machine.
+Face ID (Simulated): A framework for facial verification using a Hugging Face model.
 
-Two-Factor Authentication (2FA): Users can enable 2FA in their security settings, requiring a time-based, 6-digit code from an authenticator app (like Google Authenticator or Authy) to log in.
+Buddy System (Simulated): A system for a trusted user to grant access.
 
-Face ID Verification: For the highest level of security, users can enroll their face via their webcam. Subsequent logins will require a quick facial scan to verify their identity.
+Owner & Admin Controls:
 
-Buddy System: Users can pair their account with a trusted "buddy." If a user is locked out or attempts to log in from a new device, they can request approval from their buddy to regain access.
+Comprehensive Security Dashboard and event logs.
 
-User & Role Management
-Comprehensive Role System:
+Proactive Threat Detection and alerts for suspicious activity.
 
-Owner: The highest authority with all permissions.
+IP Address Controls to block or allow specific IPs.
 
-Co-Owner: Has the same powers as the Owner.
+Emergency Lockdown System to restrict access.
 
-Moderator: Can manage channels and use moderation tools.
+Account Approval System for new user registrations.
 
-Member: The default role for all new, approved users.
+HeimBot 🤖: An automated bot with fun and utility commands.
 
-User Database: A central hub for viewing all registered users, whether they are online or offline. Owners can manage pending account requests directly from this panel.
+DM's: A private messaging system for one-on-one conversations.
 
-Owner & Admin Controls
-User Management Panel: A dedicated section in the settings for Owners to approve or deny pending user account requests.
+Project Structure
+server.js: The backend server using Node.js, Express, and Socket.IO. It manages all application logic, authentication, and real-time communication.
 
-Global Chat Settings:
+index.html: The main HTML file that serves as the single-page application entry point.
 
-Auto Approve New Users: A toggle (default off) that allows Owners to switch between the manual approval system and automatic approval for all new accounts.
+style.css: All CSS styling for a modern, clean, and interactive UI.
 
-Redirect New Users: An optional setting (default off) that can redirect first-time visitors to an external URL, such as classroom.google.com.
+main.js: The frontend JavaScript that handles all client-side logic, UI updates, and communication with the server.
 
-Customization & UI/UX
-Sleek, Modern Interface: A clean, "Apple-ish" dark mode UI designed for a smooth and intuitive user experience.
+package.json: Lists all required Node.js dependencies.
 
-Profile Customization: Users can personalize their identity by setting a custom nickname and profile icon URL.
+Deployment on Render
+This application is configured for deployment on the Render platform.
 
-Real-Time Notifications: Receive non-intrusive, real-time toast notifications for important events like new buddy requests or pending user approvals.
-
-Responsive Design: The interface is fully responsive and works seamlessly on both desktop and mobile devices.
-
-Technology Stack
-Backend: Node.js, Express.js
-
-Database: PostgreSQL (for persistent data storage)
-
-Real-Time Engine: Socket.IO
-
-Security: bcrypt, Speakeasy (for 2FA), FingerprintJS
-
-AI: Hugging Face (for Face ID embeddings)
-
-Frontend: HTML, Tailwind CSS, Vanilla JavaScript
-
-Setup & Deployment
-Environment Variables
-To run the application, you must set the following environment variables in your hosting service (e.g., Render):
-
-DATABASE_URL: The internal connection URL for your PostgreSQL database.
-
-HUGGING_FACE_TOKEN: Your read-only API token from Hugging Face.
-
-GIPHY_API_KEY: Your API key from the GIPHY Developer Portal.
-
-Build and Start Commands
-Build Command: npm install
+Build Command: No build command is necessary as Render will automatically run npm install.
 
 Start Command: node server.js
+
+Setup Instructions (for Local Development)
+Clone the Repository: Create a new folder on your machine and place all the files inside.
+
+Install Dependencies: Open a terminal in the project directory and run:
+
+npm install
+
+
+Set Up Environment Variables: The server.js file expects two environment variables for the Giphy and Hugging Face APIs. Create a file named .env in the same directory as server.js and add your keys:
+
+GIPHY_API_KEY="YOUR_GIPHY_API_KEY"
+HUGGING_FACE_TOKEN="YOUR_HUGGING_FACE_TOKEN"
+
+
+Note: The code includes a fallback if these are not set, but the features will be simulated.
+
+Run the Server: In your terminal, run the following command:
+
+node server.js
+
+
+Access the App: Open your web browser and navigate to http://localhost:3000.
+
+Owner Credentials
+The owner account is pre-configured and hardcoded for demonstration purposes.
+
+Username: Austin ;)
+
+Password: AME
