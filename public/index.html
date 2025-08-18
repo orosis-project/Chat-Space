@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Space</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.3/css/all.min.css">
     <link rel="stylesheet" href="/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +30,9 @@
         <div class="card">
             <h1 class="card-title">Welcome</h1>
             <p class="card-subtitle" id="auth-subtitle">Please sign in or register.</p>
+            <div class="auth-banner-container hidden" id="pending-approval-banner">
+                <p>New accounts require owner approval before you can log in.</p>
+            </div>
             <div id="auth-forms" class="form-toggle-container">
                 <form id="login-form" class="form-container active">
                     <input type="text" id="login-username" class="input-field" placeholder="Username">
@@ -71,11 +74,6 @@
                 <input type="text" id="buddy-username" class="input-field" placeholder="Your buddy's username">
                 <button id="buddy-request-button" class="cta-button">Send Request</button>
             </div>
-
-            <div id="unrecognized-device-container" class="form-container hidden">
-                <p>Unrecognized device. This login attempt has been flagged.</p>
-            </div>
-
             <p id="verification-message" class="error-message"></p>
         </div>
     </div>
@@ -86,8 +84,9 @@
             <header class="chat-header">
                 <h1 class="chat-title">Chat Space</h1>
                 <div id="chat-actions">
-                    <button id="poll-button" class="action-button"><i class="fa-solid fa-square-poll-vertical"></i></button>
-                    <button id="giphy-button" class="action-button"><i class="fa-solid fa-gif"></i></button>
+                    <button id="poll-button" class="action-button" title="Create Poll"><i class="fa-solid fa-square-poll-vertical"></i></button>
+                    <button id="giphy-button" class="action-button" title="Search Giphy"><i class="fa-solid fa-gif"></i></button>
+                    <button id="settings-button" class="action-button" title="Settings"><i class="fa-solid fa-gear"></i></button>
                 </div>
             </header>
             <div id="messages" class="messages-container">
@@ -110,6 +109,28 @@
     </div>
 
     <!-- Modals & Panels -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button class="close-modal-button" id="close-settings-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="2fa-settings" class="settings-section">
+            <h4>Two-Factor Authentication</h4>
+            <div id="2fa-setup-form" class="flex flex-col gap-4">
+              <p>Scan the QR code with your authenticator app (e.g. Google Authenticator).</p>
+              <img id="qr-code-image" class="mx-auto" alt="2FA QR Code">
+              <p>Enter the 6-digit code to verify setup.</p>
+              <input type="text" id="2fa-setup-code" class="input-field" placeholder="6-digit code" maxlength="6">
+              <button id="2fa-setup-verify-button" class="cta-button">Verify & Enable</button>
+            </div>
+            <p id="2fa-status-message" class="mt-4"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Giphy Search Panel -->
     <div id="giphy-panel" class="modal-overlay hidden">
         <div class="modal-content">
@@ -186,6 +207,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
     <script src="https://openfpcdn.io/fingerprintjs/v4/iife.min.js"></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <script src="/main.js"></script>
 </body>
 </html>
