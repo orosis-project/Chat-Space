@@ -119,6 +119,10 @@ function closeModal() {
 // --- Main Event Listeners ---
 document.addEventListener('DOMContentLoaded', () => {
   getDeviceId();
+  // Ensure only the join screen is visible on page load
+  const screens = [authScreen, verificationScreen, chatScreen];
+  screens.forEach(s => s.classList.remove('active'));
+  joinScreen.classList.add('active');
 });
 
 // Join Form Submission
