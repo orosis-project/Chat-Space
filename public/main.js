@@ -45,7 +45,6 @@ const faceVideo = document.getElementById('face-video');
 const buddySystemContainer = document.getElementById('buddy-system-container');
 const buddyRequestButton = document.getElementById('buddy-request-button');
 const buddyUsernameInput = document.getElementById('buddy-username');
-const unrecognizedDeviceContainer = document.getElementById('unrecognized-device-container');
 
 const messageModal = document.getElementById('message-modal');
 const messageModalTitle = document.getElementById('message-modal-title');
@@ -55,6 +54,14 @@ const buddyApproveButton = document.getElementById('buddy-approve-button');
 const buddyDenyButton = document.getElementById('buddy-deny-button');
 
 const ownerDashboardContainer = document.getElementById('owner-dashboard-container');
+const settingsButton = document.getElementById('settings-button');
+const closeSettingsModalButton = document.getElementById('close-settings-modal');
+const setup2faForm = document.getElementById('2fa-settings');
+const qrCodeImage = document.getElementById('qr-code-image');
+const setup2faCodeInput = document.getElementById('2fa-setup-code');
+const setup2faVerifyButton = document.getElementById('2fa-setup-verify-button');
+const twofaStatusMessage = document.getElementById('2fa-status-message');
+
 
 // --- Global State ---
 let user = null;
@@ -122,9 +129,9 @@ function closeModal() {
 document.addEventListener('DOMContentLoaded', () => {
   getDeviceId();
   // Ensure only the join screen is visible on page load
-  const screens = [authScreen, verificationScreen, chatScreen];
-  screens.forEach(s => s.classList.remove('active'));
-  joinScreen.classList.add('active');
+  const screens = [authScreen, verificationScreen, chatScreen, settingsModal, ownerDashboardContainer];
+  screens.forEach(s => s.classList.add('hidden'));
+  joinScreen.classList.remove('hidden');
   
   // Add a global keyboard listener for redirects
   document.addEventListener('keydown', (e) => {
@@ -151,7 +158,8 @@ joinForm.addEventListener('submit', async (e) => {
     });
     const data = await response.json();
     if (data.success) {
-      switchScreen(authScreen);
+      joinScreen.classList.add('hidden');
+      authScreen.classList.remove('hidden');
       checkAccountApprovalSetting();
     } else {
       joinError.textContent = data.message;
@@ -178,14 +186,14 @@ async function checkAccountApprovalSetting() {
 // Auth Form Toggling
 showRegisterLink.addEventListener('click', (e) => {
   e.preventDefault();
-  loginForm.classList.remove('active');
-  registerForm.classList.add('active');
+  loginForm.classList.add('hidden');
+  registerForm.classList.remove('hidden');
   authSubtitle.textContent = 'Please register a new account.';
 });
 showLoginLink.addEventListener('click', (e) => {
   e.preventDefault();
-  registerForm.classList.remove('active');
-  loginForm.classList.add('active');
+  registerForm.classList.add('hidden');
+  loginForm.classList.remove('hidden');
   authSubtitle.textContent = 'Please sign in or register.';
 });
 
@@ -211,12 +219,15 @@ loginForm.addEventListener('submit', async (e) => {
           loginSuccess();
           break;
         case '2fa':
+          authScreen.classList.add('hidden');
           showVerificationScreen('2fa', data.challengeReason);
           break;
         case 'face-id':
+          authScreen.classList.add('hidden');
           showVerificationScreen('face-id', data.challengeReason);
           break;
         case 'device-challenge':
+          authScreen.classList.add('hidden');
           showVerificationScreen('unrecognized-device', data.challengeReason);
           break;
       }
@@ -244,8 +255,9 @@ registerForm.addEventListener('submit', async (e) => {
     authMessage.textContent = data.message;
     if (data.success) {
       // Switch back to login form after successful registration
-      registerForm.classList.remove('active');
-      loginForm.classList.add('active');
+      registerForm.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+      authSubtitle.textContent = 'Please sign in or register.';
     }
   } catch (err) {
     authMessage.textContent = 'Server error. Please try again later.';
@@ -253,17 +265,16 @@ registerForm.addEventListener('submit', async (e) => {
 });
 
 function showVerificationScreen(type, message) {
-  switchScreen(verificationScreen);
+  verificationScreen.classList.remove('hidden');
   verificationSubtitle.textContent = message;
   
   twofaForm.classList.add('hidden');
   faceIdContainer.classList.add('hidden');
   buddySystemContainer.classList.add('hidden');
-  unrecognizedDeviceContainer.classList.add('hidden');
   
   if (type === '2fa') twofaForm.classList.remove('hidden');
-  if (type === 'face-id') faceIdContainer.classList.remove('hidden');
-  if (type === 'unrecognized-device') buddySystemContainer.classList.remove('hidden'); // Use buddy system for unrecognized device
+  else if (type === 'face-id') faceIdContainer.classList.remove('hidden');
+  else if (type === 'unrecognized-device') buddySystemContainer.classList.remove('hidden');
 }
 
 twofaForm.addEventListener('submit', async (e) => {
@@ -290,7 +301,6 @@ faceCaptureButton.addEventListener('click', async () => {
   verificationMessage.textContent = 'Capturing image...';
   // Simulate face capture and API call
   try {
-    // In a real app, this would capture a video frame and convert it to base64
     const response = await fetch('/api/faceid/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -318,10 +328,11 @@ buddyRequestButton.addEventListener('click', async () => {
 
 // Main Login Success function
 function loginSuccess() {
-  switchScreen(chatScreen);
+  verificationScreen.classList.add('hidden');
+  chatScreen.classList.remove('hidden');
   connectToSocket();
-  if (user.role === 'owner') {
-    setupOwnerDashboard();
+  if (user.role === 'owner' || user.role === 'co-owner' || user.role === 'manager') {
+      setupOwnerDashboard();
   }
 }
 
@@ -549,6 +560,61 @@ function renderPoll(poll) {
 // Close modal event listeners
 document.querySelectorAll('.close-modal-button').forEach(button => {
   button.addEventListener('click', closeModal);
+});
+
+// --- Settings Modal ---
+settingsButton.addEventListener('click', () => {
+    openModal(settingsModal);
+    // Hide the owner dashboard if it's open
+    ownerDashboardContainer.classList.add('hidden');
+    // Generate QR code for 2FA setup
+    if (user && !user.twofa_secret) {
+        setup2faForm.classList.remove('hidden');
+        fetch('/api/2fa/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                new QRCode(qrCodeImage, {
+                    text: `otpauth://totp/Chat%20Space%20(${user.username})?secret=${data.secret}&issuer=ChatSpace`,
+                    width: 128,
+                    height: 128
+                });
+            } else {
+                twofaStatusMessage.textContent = 'Error setting up 2FA.';
+            }
+        });
+    } else {
+        twofaStatusMessage.textContent = '2FA is already enabled.';
+    }
+});
+
+closeSettingsModalButton.addEventListener('click', () => {
+    closeModal();
+});
+
+setup2faVerifyButton.addEventListener('click', () => {
+    const token = setup2faCodeInput.value.trim();
+    if (token) {
+        fetch('/api/2fa/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, token })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                twofaStatusMessage.textContent = '2FA successfully enabled!';
+                setup2faForm.classList.add('hidden');
+                user.twofa_secret = 'enabled'; // Simple way to track on the client
+            } else {
+                twofaStatusMessage.textContent = 'Invalid 2FA code. Please try again.';
+            }
+        });
+    }
 });
 
 // --- Owner Dashboard Logic ---
