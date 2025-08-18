@@ -22,6 +22,13 @@ const port = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 
+// --- FIX: Explicitly handle the root route ---
+// This ensures that when a user navigates to the root URL,
+// the server correctly sends the index.html file.
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // --- IN-MEMORY 'DATABASE' & CONFIGURATION ---
 const users = [
   {
