@@ -282,6 +282,42 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 2FA Setup Flow
+  socket.on('request_2fa_setup', () => {
+    const secret = speakeasy.generateSecret({ length: 20 });
+    const user = users.find(u => u.username === socket.userData.username);
+    if (user) {
+      user._2faSecret = secret;
+      QRCode.toDataURL(secret.otpauth_url, (err, data_url) => {
+        if (err) {
+          console.error('QR code generation error:', err);
+          return socket.emit('2fa_setup_response', { success: false, message: 'Failed to generate QR code.' });
+        }
+        socket.emit('2fa_setup_response', { success: true, qrCode: data_url });
+      });
+    }
+  });
+
+  socket.on('verify_2fa_setup', ({ token }) => {
+    const user = users.find(u => u.username === socket.userData.username);
+    if (!user || !user._2faSecret) {
+      return socket.emit('2fa_setup_verify_response', { success: false, message: '2FA setup not initiated.' });
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user._2faSecret.base32,
+      encoding: 'base32',
+      token: token
+    });
+
+    if (verified) {
+      user.is2FA_Enabled = true;
+      socket.emit('2fa_setup_verify_response', { success: true, message: '2FA enabled successfully!' });
+    } else {
+      socket.emit('2fa_setup_verify_response', { success: false, message: 'Invalid token. Please try again.' });
+    }
+  });
+
   // Admin controls
   socket.on('admin_action', (data) => {
     if (socket.userData.role !== 'owner') {
