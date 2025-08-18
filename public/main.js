@@ -92,6 +92,7 @@ function showScreen(screen) {
   screen.classList.remove('hidden');
 }
 
+
 function showMessage(username, message, timestamp, role = 'user') {
   const messageElement = document.createElement('div');
   messageElement.classList.add('message');
@@ -152,10 +153,26 @@ joinForm.addEventListener('submit', async (e) => {
   const code = joinCodeInput.value.trim();
   if (code === JOIN_CODE) {
     showScreen(authScreen);
+    checkAccountApprovalSetting();
   } else {
     joinError.textContent = 'Invalid join code.';
   }
 });
+
+async function checkAccountApprovalSetting() {
+    try {
+        // Since we're using Firebase, this API call is no longer needed.
+        // We'll simulate the setting for now.
+        const requiresApproval = false; // Simulating for a simple app.
+        if (requiresApproval) {
+            pendingApprovalBanner.classList.remove('hidden');
+        } else {
+            pendingApprovalBanner.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Error fetching approval setting:', err);
+    }
+}
 
 // Auth Form Toggling
 showRegisterLink.addEventListener('click', (e) => {
@@ -183,16 +200,12 @@ loginForm.addEventListener('submit', async (e) => {
     user = {
       id: userCredential.user.uid,
       username: username,
-      role: 'user', // Default role, will be updated from firestore
+      role: 'user',
     };
     
-    // Check if the user is the owner
     if (username === OWNER_USERNAME) {
         user.role = 'owner';
     }
-
-    // You would fetch user data from Firestore here to get the real role and other data.
-    // For this example, we'll keep it simple.
 
     loginSuccess();
 
@@ -214,7 +227,7 @@ registerForm.addEventListener('submit', async (e) => {
         id: userCredential.user.uid,
         username: username,
         role: 'user',
-        is_pending: false, // For this example, we'll assume no approval needed
+        is_pending: false,
         created_at: firebase.firestore.FieldValue.serverTimestamp(),
     };
     await firebaseDb.collection('users').doc(newUser.id).set(newUser);
