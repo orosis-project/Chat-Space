@@ -5,6 +5,7 @@ const joinScreen = document.getElementById('join-screen');
 const authScreen = document.getElementById('auth-screen');
 const verificationScreen = document.getElementById('verification-screen');
 const chatScreen = document.getElementById('chat-screen');
+const settingsModal = document.getElementById('settings-modal');
 
 const joinForm = document.getElementById('join-form');
 const joinCodeInput = document.getElementById('join-code');
@@ -16,6 +17,7 @@ const registerForm = document.getElementById('register-form');
 const authMessage = document.getElementById('auth-message');
 const showRegisterLink = document.getElementById('show-register');
 const showLoginLink = document.getElementById('show-login');
+const pendingApprovalBanner = document.getElementById('pending-approval-banner');
 
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
@@ -75,7 +77,7 @@ function getDeviceId() {
 }
 
 function switchScreen(screen) {
-  const screens = [joinScreen, authScreen, verificationScreen, chatScreen];
+  const screens = [joinScreen, authScreen, verificationScreen, chatScreen, settingsModal];
   screens.forEach(s => s.classList.remove('active'));
   screen.classList.add('active');
 }
@@ -123,6 +125,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const screens = [authScreen, verificationScreen, chatScreen];
   screens.forEach(s => s.classList.remove('active'));
   joinScreen.classList.add('active');
+  
+  // Add a global keyboard listener for redirects
+  document.addEventListener('keydown', (e) => {
+    if (user) {
+        if (e.key === '`') {
+            window.location.href = 'https://classroom.google.com';
+        }
+        if (e.key === '~' && (user.role === 'moderator' || user.role === 'owner' || user.role === 'co-owner' || user.role === 'manager')) {
+            window.location.href = 'https://classroom.google.com';
+        }
+    }
+  });
 });
 
 // Join Form Submission
@@ -138,6 +152,7 @@ joinForm.addEventListener('submit', async (e) => {
     const data = await response.json();
     if (data.success) {
       switchScreen(authScreen);
+      checkAccountApprovalSetting();
     } else {
       joinError.textContent = data.message;
     }
@@ -145,6 +160,20 @@ joinForm.addEventListener('submit', async (e) => {
     joinError.textContent = 'Server error. Please try again later.';
   }
 });
+
+async function checkAccountApprovalSetting() {
+    try {
+        const response = await fetch('/api/settings/approval');
+        const data = await response.json();
+        if (data.requiresApproval) {
+            pendingApprovalBanner.classList.remove('hidden');
+        } else {
+            pendingApprovalBanner.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Error fetching approval setting:', err);
+    }
+}
 
 // Auth Form Toggling
 showRegisterLink.addEventListener('click', (e) => {
@@ -234,8 +263,7 @@ function showVerificationScreen(type, message) {
   
   if (type === '2fa') twofaForm.classList.remove('hidden');
   if (type === 'face-id') faceIdContainer.classList.remove('hidden');
-  if (type === 'buddy-system') buddySystemContainer.classList.remove('hidden');
-  if (type === 'unrecognized-device') unrecognizedDeviceContainer.classList.remove('hidden');
+  if (type === 'unrecognized-device') buddySystemContainer.classList.remove('hidden'); // Use buddy system for unrecognized device
 }
 
 twofaForm.addEventListener('submit', async (e) => {
@@ -373,6 +401,13 @@ function connectToSocket() {
     messageModalText.textContent = message;
     buddyRequestActions.classList.add('hidden');
     openModal(messageModal);
+  });
+  
+  // New socket event listeners for owner notifications
+  socket.on('owner-alert', (data) => {
+      messageModalTitle.textContent = `Owner Alert: ${data.type}`;
+      messageModalText.textContent = data.message;
+      openModal(messageModal);
   });
 }
 
@@ -554,6 +589,20 @@ async function renderOwnerDashboard() {
         <h3>Security Logs</h3>
         <ul id="security-logs-list"></ul>
       </div>
+      <div class="dashboard-section">
+        <h3>User Management</h3>
+        <ul id="user-management-list"></ul>
+      </div>
+      <div class="dashboard-section">
+        <h3>Rank Powers</h3>
+        <ul class="rank-powers-list">
+          <li><strong>User:</strong> Basic chat and poll functionality.</li>
+          <li><strong>Moderator:</strong> Can kick/warn/mute users.</li>
+          <li><strong>Manager:</strong> All Moderator powers + ability to promote/demote to Moderator.</li>
+          <li><strong>Co-Owner:</strong> All Manager powers + access to emergency lockdown and IP controls.</li>
+          <li><strong>Owner:</strong> All Co-Owner powers + ability to promote/demote all ranks.</li>
+        </ul>
+      </div>
     </div>
   `;
 
@@ -581,5 +630,40 @@ async function renderOwnerDashboard() {
   } catch (err) {
     logsList.innerHTML = `<li>Error: Failed to fetch logs.</li>`;
   }
-}
+  
+  // Render user management list
+  const userManagementList = document.getElementById('user-management-list');
+  const allUsers = Object.values(activeUsers);
+  userManagementList.innerHTML = '';
+  const ranks = ['user', 'moderator', 'manager', 'co-owner', 'owner'];
+  
+  allUsers.forEach(u => {
+      const li = document.createElement('li');
+      li.classList.add('user-management-item');
+      
+      const select = document.createElement('select');
+      select.classList.add('input-field');
+      ranks.forEach(rank => {
+          const option = document.createElement('option');
+          option.value = rank;
+          option.textContent = rank;
+          if (u.role === rank) {
+              option.selected = true;
+          }
+          select.appendChild(option);
+      });
+      
+      const promoteButton = document.createElement('button');
+      promoteButton.textContent = 'Change Rank';
+      promoteButton.classList.add('cta-button');
+      promoteButton.addEventListener('click', () => {
+          const newRole = select.value;
+          socket.emit('admin-change-role', { targetUsername: u.username, newRole });
+      });
 
+      li.innerHTML = `<span>${u.username}</span>`;
+      li.appendChild(select);
+      li.appendChild(promoteButton);
+      userManagementList.appendChild(li);
+  });
+}
