@@ -62,6 +62,13 @@ const setup2faCodeInput = document.getElementById('2fa-setup-code');
 const setup2faVerifyButton = document.getElementById('2fa-setup-verify-button');
 const twofaStatusMessage = document.getElementById('2fa-status-message');
 
+const dmPanel = document.getElementById('dm-panel');
+const dmRecipientName = document.getElementById('dm-recipient-name');
+const dmMessagesContainer = document.getElementById('dm-messages');
+const dmForm = document.getElementById('dm-form');
+const dmInput = document.getElementById('dm-input');
+const closeDmButton = document.querySelector('.close-dm-button');
+
 
 // --- Global State ---
 let user = null;
@@ -70,6 +77,7 @@ let firebaseDb = window.firebaseDb;
 let deviceId = null;
 let activeModal = null;
 let currentBuddyRequestId = null;
+let dmRecipient = null;
 const JOIN_CODE = 'HMS';
 const OWNER_USERNAME = 'Austin';
 
@@ -87,13 +95,13 @@ function getDeviceId() {
 }
 
 function showScreen(screen) {
-  const screens = [joinScreen, authScreen, verificationScreen, chatScreen, settingsModal, ownerDashboardContainer];
+  const screens = [joinScreen, authScreen, verificationScreen, chatScreen, settingsModal, ownerDashboardContainer, dmPanel];
   screens.forEach(s => s.classList.add('hidden'));
   screen.classList.remove('hidden');
 }
 
 
-function showMessage(username, message, timestamp, role = 'user') {
+function showMessage(username, message, timestamp, role = 'user', container = messagesContainer) {
   const messageElement = document.createElement('div');
   messageElement.classList.add('message');
   
@@ -113,8 +121,8 @@ function showMessage(username, message, timestamp, role = 'user') {
   }
 
   messageElement.innerHTML = `${meta}${content}`;
-  messagesContainer.appendChild(messageElement);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  container.appendChild(messageElement);
+  container.scrollTop = container.scrollHeight;
 }
 
 function openModal(modal) {
@@ -191,22 +199,25 @@ showLoginLink.addEventListener('click', (e) => {
 // Login Form Submission
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const username = e.target.elements['login-username'].value;
+  const email = e.target.elements['login-username'].value;
   const password = e.target.elements['login-password'].value;
   const deviceId = await getDeviceId();
 
   try {
-    const userCredential = await firebaseAuth.signInWithEmailAndPassword(username, password);
+    const userCredential = await firebaseAuth.signInWithEmailAndPassword(email, password);
+    const userDoc = await firebaseDb.collection('users').doc(userCredential.user.uid).get();
+    
+    if (!userDoc.exists) {
+        throw new Error('User data not found in Firestore.');
+    }
+    
     user = {
       id: userCredential.user.uid,
-      username: username,
-      role: 'user',
+      username: userDoc.data().username,
+      role: userDoc.data().role,
+      dmPrivilege: userDoc.data().dmPrivilege || true,
     };
     
-    if (username === OWNER_USERNAME) {
-        user.role = 'owner';
-    }
-
     loginSuccess();
 
   } catch (err) {
@@ -220,15 +231,17 @@ registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = e.target.elements['register-username'].value;
   const password = e.target.elements['register-password'].value;
+  const email = username;
 
   try {
-    const userCredential = await firebaseAuth.createUserWithEmailAndPassword(username, password);
+    const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
     const newUser = {
         id: userCredential.user.uid,
         username: username,
         role: 'user',
         is_pending: false,
         created_at: firebase.firestore.FieldValue.serverTimestamp(),
+        dmPrivilege: true,
     };
     await firebaseDb.collection('users').doc(newUser.id).set(newUser);
     
@@ -253,16 +266,17 @@ function loginSuccess() {
       messagesContainer.innerHTML = '';
       snapshot.forEach(doc => {
           const message = doc.data();
-          showMessage(message.username, message.message, message.timestamp?.toDate(), message.role);
+          showMessage(message.username, message.message, message.timestamp?.toDate(), message.role, messagesContainer);
       });
   });
   
-  // This is a simple online user list simulation. In a real app, you'd use Firestore presence.
+  // Update online user presence
   const onlineUserRef = firebaseDb.collection('onlineUsers').doc(user.id);
   onlineUserRef.set({
       username: user.username,
       role: user.role,
       lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+      dmPrivilege: user.dmPrivilege,
   });
   
   // Listen for online user updates
@@ -270,14 +284,17 @@ function loginSuccess() {
       onlineUsersList.innerHTML = '';
       snapshot.forEach(doc => {
           const onlineUser = doc.data();
-          const li = document.createElement('li');
-          li.classList.add('user-item');
-          li.innerHTML = `
-            <span class="user-status"></span>
-            <span class="username">${onlineUser.username}</span>
-            <span class="role-badge ${onlineUser.role}">${onlineUser.role}</span>
-          `;
-          onlineUsersList.appendChild(li);
+          if (onlineUser.username !== user.username) {
+              const li = document.createElement('li');
+              li.classList.add('user-item');
+              li.innerHTML = `
+                <span class="user-status"></span>
+                <span class="username">${onlineUser.username}</span>
+                <span class="role-badge ${onlineUser.role}">${onlineUser.role}</span>
+                ${onlineUser.dmPrivilege ? `<button class="dm-button" data-user-id="${doc.id}">DM</button>` : ''}
+              `;
+              onlineUsersList.appendChild(li);
+          }
       });
   });
 
@@ -302,13 +319,62 @@ messageForm.addEventListener('submit', async (e) => {
   }
 });
 
+// DM Form Submission
+dmForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = dmInput.value.trim();
+    if (message && user && dmRecipient) {
+        const conversationId = [user.id, dmRecipient.id].sort().join('_');
+        await firebaseDb.collection('dms').doc(conversationId).collection('messages').add({
+            senderId: user.id,
+            senderName: user.username,
+            recipientId: dmRecipient.id,
+            message: message,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        dmInput.value = '';
+    }
+});
+
+// Handle DM button click
+document.getElementById('online-users').addEventListener('click', async (e) => {
+    if (e.target.classList.contains('dm-button')) {
+        const recipientId = e.target.getAttribute('data-user-id');
+        const recipientDoc = await firebaseDb.collection('users').doc(recipientId).get();
+        if (recipientDoc.exists && recipientDoc.data().dmPrivilege) {
+            dmRecipient = { id: recipientId, username: recipientDoc.data().username };
+            openDmPanel(dmRecipient.username);
+        } else {
+            alert('This user has disabled direct messages.');
+        }
+    }
+});
+
+function openDmPanel(recipientName) {
+    dmRecipientName.textContent = `DM with ${recipientName}`;
+    dmMessagesContainer.innerHTML = '';
+    showScreen(dmPanel);
+    
+    const conversationId = [user.id, dmRecipient.id].sort().join('_');
+    firebaseDb.collection('dms').doc(conversationId).collection('messages').orderBy('timestamp').onSnapshot(snapshot => {
+        dmMessagesContainer.innerHTML = '';
+        snapshot.forEach(doc => {
+            const message = doc.data();
+            showMessage(message.senderName, message.message, message.timestamp?.toDate(), 'user', dmMessagesContainer);
+        });
+    });
+}
+
+closeDmButton.addEventListener('click', () => {
+    showScreen(chatScreen);
+    dmRecipient = null;
+});
+
 
 // --- Other Functions (Simplified/Simulated) ---
 
 // Giphy Button
 giphyButton.addEventListener('click', () => {
-  // In a Firebase context, you would need to set up a Firebase Function
-  // to securely call the Giphy API, but for now, this is a placeholder.
   alert('Giphy feature needs a Firebase Function backend to work securely.');
 });
 
