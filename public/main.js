@@ -83,11 +83,12 @@ function getDeviceId() {
     });
 }
 
-function switchScreen(screen) {
-  const screens = [joinScreen, authScreen, verificationScreen, chatScreen, settingsModal];
-  screens.forEach(s => s.classList.remove('active'));
-  screen.classList.add('active');
+function showScreen(screen) {
+  const screens = [joinScreen, authScreen, verificationScreen, chatScreen, settingsModal, ownerDashboardContainer, giphyPanel, pollModal, lockdownModal, messageModal];
+  screens.forEach(s => s.classList.add('hidden'));
+  screen.classList.remove('hidden');
 }
+
 
 function showMessage(username, message, timestamp, role = 'user') {
   const messageElement = document.createElement('div');
@@ -128,10 +129,7 @@ function closeModal() {
 // --- Main Event Listeners ---
 document.addEventListener('DOMContentLoaded', () => {
   getDeviceId();
-  // Ensure only the join screen is visible on page load
-  const screens = [authScreen, verificationScreen, chatScreen, settingsModal, ownerDashboardContainer];
-  screens.forEach(s => s.classList.add('hidden'));
-  joinScreen.classList.remove('hidden');
+  showScreen(joinScreen);
   
   // Add a global keyboard listener for redirects
   document.addEventListener('keydown', (e) => {
@@ -158,8 +156,7 @@ joinForm.addEventListener('submit', async (e) => {
     });
     const data = await response.json();
     if (data.success) {
-      joinScreen.classList.add('hidden');
-      authScreen.classList.remove('hidden');
+      showScreen(authScreen);
       checkAccountApprovalSetting();
     } else {
       joinError.textContent = data.message;
@@ -219,15 +216,15 @@ loginForm.addEventListener('submit', async (e) => {
           loginSuccess();
           break;
         case '2fa':
-          authScreen.classList.add('hidden');
+          showScreen(verificationScreen);
           showVerificationScreen('2fa', data.challengeReason);
           break;
         case 'face-id':
-          authScreen.classList.add('hidden');
+          showScreen(verificationScreen);
           showVerificationScreen('face-id', data.challengeReason);
           break;
         case 'device-challenge':
-          authScreen.classList.add('hidden');
+          showScreen(verificationScreen);
           showVerificationScreen('unrecognized-device', data.challengeReason);
           break;
       }
@@ -328,8 +325,7 @@ buddyRequestButton.addEventListener('click', async () => {
 
 // Main Login Success function
 function loginSuccess() {
-  verificationScreen.classList.add('hidden');
-  chatScreen.classList.remove('hidden');
+  showScreen(chatScreen);
   connectToSocket();
   if (user.role === 'owner' || user.role === 'co-owner' || user.role === 'manager') {
       setupOwnerDashboard();
