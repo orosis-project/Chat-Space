@@ -1,448 +1,554 @@
-// main.js - Chat Space Frontend Logic with Firebase
+// --- CLIENT-SIDE LOGIC ---
 
-// --- Global DOM Elements ---
-const joinScreen = document.getElementById('join-screen');
-const authScreen = document.getElementById('auth-screen');
-const verificationScreen = document.getElementById('verification-screen');
-const chatScreen = document.getElementById('chat-screen');
-const settingsModal = document.getElementById('settings-modal');
+// --- GLOBAL VARIABLES & STATE ---
+const screens = {
+  join: document.getElementById('join-screen'),
+  auth: document.getElementById('auth-screen'),
+  _2fa: document.getElementById('2fa-screen'),
+  faceid: document.getElementById('faceid-screen'),
+  buddy: document.getElementById('buddy-screen'),
+  chat: document.getElementById('chat-screen'),
+  admin: document.getElementById('admin-panel')
+};
 
-const joinForm = document.getElementById('join-form');
-const joinCodeInput = document.getElementById('join-code');
-const joinError = document.getElementById('join-error-message');
+let currentUser = null;
+let socket = null;
+const messagesContainer = document.getElementById('messages-container');
+const userList = document.getElementById('user-list');
 
-const authSubtitle = document.getElementById('auth-subtitle');
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const authMessage = document.getElementById('auth-message');
-const showRegisterLink = document.getElementById('show-register');
-const showLoginLink = document.getElementById('show-login');
-const pendingApprovalBanner = document.getElementById('pending-approval-banner');
+// --- UTILITY FUNCTIONS ---
+function switchScreen(screenId) {
+  Object.values(screens).forEach(screen => screen.classList.remove('active'));
+  if (screens[screenId]) {
+    screens[screenId].classList.add('active');
+  }
+}
 
-const messageForm = document.getElementById('message-form');
-const messageInput = document.getElementById('message-input');
-const messagesContainer = document.getElementById('messages');
-const onlineUsersList = document.getElementById('online-users');
+function showMessage(elementId, text, isSuccess = false) {
+  const element = document.getElementById(elementId);
+  element.textContent = text;
+  element.classList.remove('hidden');
+  element.classList.remove(isSuccess ? 'error' : 'success');
+  element.classList.add(isSuccess ? 'success' : 'error');
+}
 
-const giphyButton = document.getElementById('giphy-button');
-const giphyPanel = document.getElementById('giphy-panel');
-const giphySearchInput = document.getElementById('giphy-search-input');
-const giphyResultsGrid = document.getElementById('giphy-results');
+function showLoading(elementId, show) {
+  document.getElementById(elementId).classList.toggle('hidden', !show);
+}
 
-const pollButton = document.getElementById('poll-button');
-const pollModal = document.getElementById('poll-modal');
-const pollForm = document.getElementById('poll-form');
-const addOptionButton = document.getElementById('add-option-button');
-const pollOptionsContainer = document.getElementById('poll-options-container');
-
-const verificationSubtitle = document.getElementById('verification-subtitle');
-const verificationMessage = document.getElementById('verification-message');
-const twofaForm = document.getElementById('2fa-form');
-const twofaCodeInput = document.getElementById('2fa-code');
-const faceIdContainer = document.getElementById('face-id-container');
-const faceCaptureButton = document.getElementById('face-capture-button');
-const faceVideo = document.getElementById('face-video');
-const buddySystemContainer = document.getElementById('buddy-system-container');
-const buddyRequestButton = document.getElementById('buddy-request-button');
-const buddyUsernameInput = document.getElementById('buddy-username');
-
-const messageModal = document.getElementById('message-modal');
-const messageModalTitle = document.getElementById('message-modal-title');
-const messageModalText = document.getElementById('message-modal-text');
-const buddyRequestActions = document.getElementById('buddy-request-actions');
-const buddyApproveButton = document.getElementById('buddy-approve-button');
-const buddyDenyButton = document.getElementById('buddy-deny-button');
-
-const ownerDashboardContainer = document.getElementById('owner-dashboard-container');
-const settingsButton = document.getElementById('settings-button');
-const closeSettingsModalButton = document.getElementById('close-settings-modal');
-const setup2faForm = document.getElementById('2fa-settings');
-const qrCodeImage = document.getElementById('qr-code-image');
-const setup2faCodeInput = document.getElementById('2fa-setup-code');
-const setup2faVerifyButton = document.getElementById('2fa-setup-verify-button');
-const twofaStatusMessage = document.getElementById('2fa-status-message');
-
-const dmPanel = document.getElementById('dm-panel');
-const dmRecipientName = document.getElementById('dm-recipient-name');
-const dmMessagesContainer = document.getElementById('dm-messages');
-const dmForm = document.getElementById('dm-form');
-const dmInput = document.getElementById('dm-input');
-const closeDmButton = document.querySelector('.close-dm-button');
-
-
-// --- Global State ---
-let user = null;
-let firebaseAuth = window.firebaseAuth;
-let firebaseDb = window.firebaseDb;
-let deviceId = null;
-let activeModal = null;
-let currentBuddyRequestId = null;
-let dmRecipient = null;
-const JOIN_CODE = 'HMS';
-const OWNER_USERNAME = 'Austin';
-
-// --- Utility Functions ---
 function getDeviceId() {
-  if (deviceId) {
-    return Promise.resolve(deviceId);
-  }
-  return FingerprintJS.load()
-    .then(fp => fp.get())
-    .then(result => {
-      deviceId = result.visitorId;
-      return deviceId;
-    });
+  return FingerprintJS.load().then(fp => fp.get()).then(result => result.visitorId);
 }
 
-function showScreen(screen) {
-  const screens = [joinScreen, authScreen, verificationScreen, chatScreen, settingsModal, ownerDashboardContainer, dmPanel];
-  screens.forEach(s => s.classList.add('hidden'));
-  screen.classList.remove('hidden');
-}
-
-
-function showMessage(username, message, timestamp, role = 'user', container = messagesContainer) {
-  const messageElement = document.createElement('div');
-  messageElement.classList.add('message');
-  
-  let roleClass = '';
-  if (role === 'owner') roleClass = 'role-owner';
-  else if (role === 'bot') roleClass = 'role-bot';
-  else roleClass = 'role-user';
-
-  const userSpan = `<span class="username ${roleClass}">${username}</span>`;
-  const timeSpan = `<span class="timestamp">${new Date(timestamp).toLocaleTimeString()}</span>`;
-  const meta = `<div class="message-meta">${userSpan} ${timeSpan}</div>`;
-
-  let content = `<p class="message-text">${message}</p>`;
-  if (message.startsWith('http')) {
-    const imageUrl = message;
-    content = `<img src="${imageUrl}" alt="GIF" class="chat-image">`;
-  }
-
-  messageElement.innerHTML = `${meta}${content}`;
-  container.appendChild(messageElement);
-  container.scrollTop = container.scrollHeight;
-}
-
-function openModal(modal) {
-  activeModal = modal;
-  modal.classList.remove('hidden');
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 function closeModal() {
-  if (activeModal) {
-    activeModal.classList.add('hidden');
-    activeModal = null;
-  }
+  document.getElementById('message-modal').classList.add('hidden');
 }
 
-// --- Main Event Listeners ---
-document.addEventListener('DOMContentLoaded', () => {
-  getDeviceId();
-  showScreen(joinScreen);
-  
-  // Add a global keyboard listener for redirects
-  document.addEventListener('keydown', (e) => {
-    if (user) {
-        if (e.key === '`') {
-            window.location.href = 'https://classroom.google.com';
-        }
-        if (e.key === '~' && (user.role === 'moderator' || user.role === 'owner' || user.role === 'co-owner' || user.role === 'manager')) {
-            window.location.href = 'https://classroom.google.com';
-        }
-    }
-  });
-});
+function showModal(title, text) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-message-text').textContent = text;
+  document.getElementById('message-modal').classList.remove('hidden');
+}
 
-// Join Form Submission
-joinForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const code = joinCodeInput.value.trim();
-  if (code === JOIN_CODE) {
-    showScreen(authScreen);
-    checkAccountApprovalSetting();
+// --- RENDERING FUNCTIONS ---
+function renderMessages(msgs) {
+  messagesContainer.innerHTML = '';
+  msgs.forEach(msg => renderMessage(msg, true));
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function renderMessage(msg, isInitial = false) {
+  const isSentByMe = currentUser && msg.username === currentUser.username;
+  const isBot = msg.role === 'bot';
+
+  const messageElement = document.createElement('div');
+  messageElement.classList.add('message-item');
+  if (isSentByMe) {
+    messageElement.classList.add('sent');
+  }
+  if (isBot) {
+    messageElement.classList.add('bot');
+  }
+
+  const contentWrapper = document.createElement('div');
+  contentWrapper.classList.add('message-content-wrapper');
+
+  const userInfo = document.createElement('div');
+  userInfo.classList.add('message-info');
+
+  const usernameSpan = document.createElement('span');
+  usernameSpan.classList.add('message-username');
+  usernameSpan.textContent = msg.username;
+  userInfo.appendChild(usernameSpan);
+
+  const roleSpan = document.createElement('span');
+  roleSpan.classList.add('message-role');
+  roleSpan.textContent = `(${msg.role})`;
+  userInfo.appendChild(roleSpan);
+
+  if (msg.isVerified) {
+    const verifiedIcon = document.createElement('i');
+    verifiedIcon.classList.add('fas', 'fa-check-circle', 'verified-icon');
+    userInfo.appendChild(verifiedIcon);
+  }
+
+  contentWrapper.appendChild(userInfo);
+
+  if (msg.isPoll) {
+    const pollContainer = document.createElement('div');
+    pollContainer.classList.add('poll-content');
+
+    const question = document.createElement('p');
+    question.classList.add('poll-question');
+    question.textContent = msg.question;
+    pollContainer.appendChild(question);
+
+    const optionsList = document.createElement('ul');
+    optionsList.classList.add('poll-options-list');
+
+    msg.options.forEach(option => {
+      const optionItem = document.createElement('li');
+      optionItem.classList.add('poll-option-item');
+      optionItem.dataset.pollId = msg.id;
+      optionItem.dataset.option = option.text;
+
+      const optionText = document.createElement('span');
+      optionText.classList.add('poll-option-text');
+      optionText.textContent = option.text;
+      optionItem.appendChild(optionText);
+
+      const voteCount = document.createElement('span');
+      voteCount.classList.add('poll-vote-count');
+      voteCount.textContent = option.votes;
+      optionItem.appendChild(voteCount);
+
+      optionItem.addEventListener('click', () => {
+        socket.emit('vote_poll', { pollId: msg.id, option: option.text });
+      });
+
+      optionsList.appendChild(optionItem);
+    });
+
+    pollContainer.appendChild(optionsList);
+    contentWrapper.appendChild(pollContainer);
+  } else if (msg.isGif) {
+    const gifImage = document.createElement('img');
+    gifImage.src = msg.content;
+    gifImage.classList.add('gif-content');
+    contentWrapper.appendChild(gifImage);
   } else {
-    joinError.textContent = 'Invalid join code.';
+    const messageText = document.createElement('p');
+    messageText.classList.add('message-text');
+    messageText.textContent = msg.content;
+    contentWrapper.appendChild(messageText);
+  }
+
+  messageElement.appendChild(contentWrapper);
+
+  if (isInitial) {
+    messagesContainer.appendChild(messageElement);
+  } else {
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+}
+
+function renderUsers(users) {
+  userList.innerHTML = '';
+  users.forEach(user => {
+    const userItem = document.createElement('li');
+    userItem.dataset.username = user.username;
+    userItem.innerHTML = `
+      <div class="user-status ${user.status}"></div>
+      <div class="user-info">
+        <span class="username">${user.username}</span>
+        <span class="user-role">${user.role}</span>
+        ${user.isVerified ? '<i class="fa-solid fa-circle-check verified-icon"></i>' : ''}
+      </div>
+    `;
+    userList.appendChild(userItem);
+  });
+}
+
+function renderGifs(gifs) {
+  const gifResults = document.getElementById('gif-results');
+  gifResults.innerHTML = '';
+  gifs.forEach(gif => {
+    const imgWrapper = document.createElement('div');
+    imgWrapper.classList.add('gif-result-item');
+    const img = document.createElement('img');
+    img.src = gif.url;
+    img.alt = 'Giphy GIF';
+    img.addEventListener('click', () => {
+      socket.emit('chat_message', gif.url);
+      document.getElementById('gif-keyboard').classList.add('hidden');
+    });
+    imgWrapper.appendChild(img);
+    gifResults.appendChild(imgWrapper);
+  });
+}
+
+// --- EVENT LISTENERS & FORM SUBMISSIONS ---
+
+// Join Code Form
+document.getElementById('join-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('join-code').value;
+  const messageElement = document.getElementById('join-message');
+  const response = await fetch('/api/join', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+  const result = await response.json();
+  if (result.success) {
+    showMessage('join-message', 'Code accepted! Proceeding to login...', true);
+    setTimeout(() => {
+      switchScreen('auth');
+    }, 1000);
+  } else {
+    showMessage('join-message', result.message);
   }
 });
 
-async function checkAccountApprovalSetting() {
-    try {
-        // Since we're using Firebase, this API call is no longer needed.
-        // We'll simulate the setting for now.
-        const requiresApproval = false; // Simulating for a simple app.
-        if (requiresApproval) {
-            pendingApprovalBanner.classList.remove('hidden');
-        } else {
-            pendingApprovalBanner.classList.add('hidden');
-        }
-    } catch (err) {
-        console.error('Error fetching approval setting:', err);
-    }
-}
-
-// Auth Form Toggling
-showRegisterLink.addEventListener('click', (e) => {
+// Login Form
+document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  loginForm.classList.add('hidden');
-  registerForm.classList.remove('hidden');
-  authSubtitle.textContent = 'Please register a new account.';
-});
-showLoginLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  registerForm.classList.add('hidden');
-  loginForm.classList.remove('hidden');
-  authSubtitle.textContent = 'Please sign in or register.';
-});
-
-// Login Form Submission
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = e.target.elements['login-username'].value;
-  const password = e.target.elements['login-password'].value;
+  showLoading('auth-loading', true);
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
   const deviceId = await getDeviceId();
+  document.getElementById('device-id').value = deviceId;
 
-  try {
-    const userCredential = await firebaseAuth.signInWithEmailAndPassword(email, password);
-    const userDoc = await firebaseDb.collection('users').doc(userCredential.user.uid).get();
-    
-    if (!userDoc.exists) {
-        throw new Error('User data not found in Firestore.');
+  const response = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, deviceId })
+  });
+  const result = await response.json();
+  showLoading('auth-loading', false);
+
+  if (result.success) {
+    if (result.nextStep === '2fa') {
+      document.getElementById('2fa-screen').dataset.username = username;
+      switchScreen('2fa');
+    } else if (result.nextStep === 'faceId') {
+      document.getElementById('faceid-screen').dataset.username = username;
+      // Start webcam on face ID screen
+      const video = document.getElementById('webcam');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.play();
+      } catch (err) {
+        showMessage('faceid-message', 'Error accessing webcam. Please allow access.');
+      }
+      switchScreen('faceid');
+    } else if (result.nextStep === 'buddy') {
+      // Logic for buddy system
+      switchScreen('buddy');
+    } else {
+      currentUser = result.user;
+      connectToChat(currentUser);
     }
-    
-    user = {
-      id: userCredential.user.uid,
-      username: userDoc.data().username,
-      role: userDoc.data().role,
-      dmPrivilege: userDoc.data().dmPrivilege || true,
-    };
-    
-    loginSuccess();
-
-  } catch (err) {
-    authMessage.textContent = 'Invalid username or password.';
-    console.error('Login error:', err);
+  } else {
+    showMessage('auth-message', result.message);
   }
 });
 
-// Registration Form Submission
-registerForm.addEventListener('submit', async (e) => {
+// 2FA Form
+document.getElementById('2fa-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const username = e.target.elements['register-username'].value;
-  const password = e.target.elements['register-password'].value;
-  const email = username;
+  const username = document.getElementById('2fa-screen').dataset.username;
+  const token = document.getElementById('2fa-token').value;
+  const response = await fetch('/api/2fa/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, token })
+  });
+  const result = await response.json();
+  if (result.success) {
+    currentUser = result.user;
+    connectToChat(currentUser);
+  } else {
+    showMessage('2fa-message', result.message);
+  }
+});
 
-  try {
-    const userCredential = await firebaseAuth.createUserWithEmailAndPassword(email, password);
-    const newUser = {
-        id: userCredential.user.uid,
-        username: username,
-        role: 'user',
-        is_pending: false,
-        created_at: firebase.firestore.FieldValue.serverTimestamp(),
-        dmPrivilege: true,
-    };
-    await firebaseDb.collection('users').doc(newUser.id).set(newUser);
+// Face ID Form
+document.getElementById('faceid-capture-btn').addEventListener('click', async () => {
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('face-canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    authMessage.textContent = 'Registration successful. Please sign in.';
-    registerForm.classList.add('hidden');
-    loginForm.classList.remove('hidden');
-    authSubtitle.textContent = 'Please sign in or register.';
-
-  } catch (err) {
-    authMessage.textContent = 'Registration failed. ' + err.message;
-    console.error('Registration error:', err);
-  }
-});
-
-
-// Main Login Success function
-function loginSuccess() {
-  showScreen(chatScreen);
-  
-  // Set up real-time listeners for chat messages and online users
-  firebaseDb.collection('messages').orderBy('timestamp').onSnapshot(snapshot => {
-      messagesContainer.innerHTML = '';
-      snapshot.forEach(doc => {
-          const message = doc.data();
-          showMessage(message.username, message.message, message.timestamp?.toDate(), message.role, messagesContainer);
-      });
-  });
-  
-  // Update online user presence
-  const onlineUserRef = firebaseDb.collection('onlineUsers').doc(user.id);
-  onlineUserRef.set({
-      username: user.username,
-      role: user.role,
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-      dmPrivilege: user.dmPrivilege,
-  });
-  
-  // Listen for online user updates
-  firebaseDb.collection('onlineUsers').onSnapshot(snapshot => {
-      onlineUsersList.innerHTML = '';
-      snapshot.forEach(doc => {
-          const onlineUser = doc.data();
-          if (onlineUser.username !== user.username) {
-              const li = document.createElement('li');
-              li.classList.add('user-item');
-              li.innerHTML = `
-                <span class="user-status"></span>
-                <span class="username">${onlineUser.username}</span>
-                <span class="role-badge ${onlineUser.role}">${onlineUser.role}</span>
-                ${onlineUser.dmPrivilege ? `<button class="dm-button" data-user-id="${doc.id}">DM</button>` : ''}
-              `;
-              onlineUsersList.appendChild(li);
-          }
-      });
-  });
-
-  if (user.role === 'owner' || user.role === 'co-owner' || user.role === 'manager') {
-      setupOwnerDashboard();
-  }
-}
-
-// --- Chat & Firestore Logic ---
-messageForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const message = messageInput.value.trim();
-  if (message && user) {
-    await firebaseDb.collection('messages').add({
-      userId: user.id,
-      username: user.username,
-      message: message,
-      role: user.role,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    // Simulate Face ID vector generation
+    const faceVector = [Math.random(), Math.random(), Math.random()]; // Simulated vector
+    
+    const username = document.getElementById('faceid-screen').dataset.username;
+    const response = await fetch('/api/faceid/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, faceVector })
     });
-    messageInput.value = '';
-  }
-});
-
-// DM Form Submission
-dmForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const message = dmInput.value.trim();
-    if (message && user && dmRecipient) {
-        const conversationId = [user.id, dmRecipient.id].sort().join('_');
-        await firebaseDb.collection('dms').doc(conversationId).collection('messages').add({
-            senderId: user.id,
-            senderName: user.username,
-            recipientId: dmRecipient.id,
-            message: message,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        });
-        dmInput.value = '';
+    const result = await response.json();
+    if (result.success) {
+        showMessage('faceid-message', 'Face ID verified! Logging in...', true);
+        currentUser = result.user;
+        connectToChat(currentUser);
+    } else {
+        showMessage('faceid-message', result.message);
     }
 });
 
-// Handle DM button click
-document.getElementById('online-users').addEventListener('click', async (e) => {
-    if (e.target.classList.contains('dm-button')) {
-        const recipientId = e.target.getAttribute('data-user-id');
-        const recipientDoc = await firebaseDb.collection('users').doc(recipientId).get();
-        if (recipientDoc.exists && recipientDoc.data().dmPrivilege) {
-            dmRecipient = { id: recipientId, username: recipientDoc.data().username };
-            openDmPanel(dmRecipient.username);
-        } else {
-            alert('This user has disabled direct messages.');
-        }
-    }
+// Chat Input
+document.getElementById('send-btn').addEventListener('click', () => {
+  const input = document.getElementById('message-input');
+  if (input.value.trim()) {
+    socket.emit('chat_message', input.value);
+    input.value = '';
+  }
 });
 
-function openDmPanel(recipientName) {
-    dmRecipientName.textContent = `DM with ${recipientName}`;
-    dmMessagesContainer.innerHTML = '';
-    showScreen(dmPanel);
-    
-    const conversationId = [user.id, dmRecipient.id].sort().join('_');
-    firebaseDb.collection('dms').doc(conversationId).collection('messages').orderBy('timestamp').onSnapshot(snapshot => {
-        dmMessagesContainer.innerHTML = '';
-        snapshot.forEach(doc => {
-            const message = doc.data();
-            showMessage(message.senderName, message.message, message.timestamp?.toDate(), 'user', dmMessagesContainer);
-        });
-    });
-}
-
-closeDmButton.addEventListener('click', () => {
-    showScreen(chatScreen);
-    dmRecipient = null;
+document.getElementById('message-input').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('send-btn').click();
+  }
 });
-
-
-// --- Other Functions (Simplified/Simulated) ---
 
 // Giphy Button
-giphyButton.addEventListener('click', () => {
-  alert('Giphy feature needs a Firebase Function backend to work securely.');
+document.getElementById('gif-btn').addEventListener('click', () => {
+  const gifKeyboard = document.getElementById('gif-keyboard');
+  gifKeyboard.classList.toggle('hidden');
+});
+
+// Giphy Search
+document.getElementById('gif-search-input').addEventListener('input', async (e) => {
+  const searchTerm = e.target.value;
+  if (searchTerm.length > 2) {
+    const response = await fetch('/api/giphy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ searchTerm })
+    });
+    const result = await response.json();
+    if (result.success) {
+      renderGifs(result.gifs);
+    } else {
+      showModal('Error', result.message);
+    }
+  }
 });
 
 // Poll Button
-pollButton.addEventListener('click', () => {
-  alert('Poll feature would be implemented using Firestore collections.');
+document.getElementById('poll-btn').addEventListener('click', () => {
+  document.getElementById('poll-modal').classList.remove('hidden');
 });
 
-// Settings Button
-settingsButton.addEventListener('click', () => {
-  alert('Settings page would be implemented here, including 2FA setup.');
+// Add Poll Option
+document.getElementById('add-option-btn').addEventListener('click', () => {
+  const container = document.getElementById('poll-options-container');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.classList.add('poll-option');
+  input.placeholder = `Option ${container.children.length + 1}`;
+  input.required = true;
+  container.appendChild(input);
 });
 
-// --- Owner Dashboard Logic ---
-function setupOwnerDashboard() {
-  const dashboardButton = document.createElement('button');
-  dashboardButton.id = 'owner-dashboard-button';
-  dashboardButton.classList.add('action-button');
-  dashboardButton.innerHTML = '<i class="fa-solid fa-gear"></i>';
-  document.getElementById('chat-actions').appendChild(dashboardButton);
-  
-  dashboardButton.addEventListener('click', () => {
-    ownerDashboardContainer.classList.toggle('hidden');
-    renderOwnerDashboard();
+// Poll Form
+document.getElementById('poll-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const question = document.getElementById('poll-question').value;
+  const options = Array.from(document.querySelectorAll('.poll-option')).map(input => input.value).filter(val => val.trim() !== '');
+  if (options.length < 2) {
+    showModal('Poll Error', 'Please enter at least two options.');
+    return;
+  }
+  socket.emit('create_poll', { question, options });
+  document.getElementById('poll-modal').classList.add('hidden');
+});
+
+// Close Poll Modal
+document.getElementById('close-poll-modal').addEventListener('click', () => {
+  document.getElementById('poll-modal').classList.add('hidden');
+});
+
+// --- ADMIN PANEL FUNCTIONS & LISTENERS ---
+function setupAdminPanel() {
+  document.querySelectorAll('.admin-menu li').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.admin-menu li').forEach(li => li.classList.remove('active'));
+      document.querySelectorAll('.admin-panel').forEach(panel => panel.classList.remove('active'));
+      item.classList.add('active');
+      const panelId = item.dataset.panel;
+      document.getElementById(`${panelId}-panel`).classList.add('active');
+    });
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    socket.disconnect();
+    currentUser = null;
+    switchScreen('auth');
+    showMessage('auth-message', 'Logged out successfully.', true);
   });
 }
 
-async function renderOwnerDashboard() {
-  ownerDashboardContainer.innerHTML = '';
-  // This is a simple mock-up of the dashboard
-  ownerDashboardContainer.innerHTML = `
-    <div class="sidebar owner-dashboard">
-      <div class="sidebar-header">
-        <h2>Owner Dashboard</h2>
+function renderSecurityLogs(logs) {
+  const container = document.getElementById('logs-container');
+  container.innerHTML = '';
+  logs.forEach(log => {
+    const logItem = document.createElement('div');
+    logItem.classList.add('log-item');
+    logItem.innerHTML = `
+      <div class="log-item-details">
+        <p><span>Type:</span> ${log.type}</p>
+        <p><span>User:</span> ${log.user}</p>
+        <p><span>Details:</span> ${log.details}</p>
       </div>
-      <div class="dashboard-section">
-        <h3>Security Controls</h3>
-        <form id="lockdown-form">
-          <label for="lockdown-mode">Emergency Lockdown:</label>
-          <select id="lockdown-mode" class="input-field">
-              <option value="none">None</option>
-              <option value="all">Block All Users</option>
-              <option value="unauthenticated">Block Unauthenticated</option>
-          </select>
-          <button type="submit" class="cta-button">Set Mode</button>
-        </form>
+      <div class="log-item-meta">
+        <p>${new Date(log.timestamp).toLocaleString()}</p>
+        <p>${log.ip}</p>
       </div>
-      <div class="dashboard-section">
-        <h3>Security Logs</h3>
-        <ul id="security-logs-list"></ul>
-      </div>
-      <div class="dashboard-section">
-        <h3>User Management</h3>
-        <ul id="user-management-list"></ul>
-      </div>
-      <div class="dashboard-section">
-        <h3>Rank Powers</h3>
-        <ul class="rank-powers-list">
-          <li><strong>User:</strong> Basic chat and poll functionality.</li>
-          <li><strong>Moderator:</strong> Can kick/warn/mute users.</li>
-          <li><strong>Manager:</strong> All Moderator powers + ability to promote/demote to Moderator.</li>
-          <li><strong>Co-Owner:</strong> All Manager powers + access to emergency lockdown and IP controls.</li>
-          <li><strong>Owner:</strong> All Co-Owner powers + ability to promote/demote all ranks.</li>
-        </ul>
-      </div>
-    </div>
-  `;
-
-  // These event listeners and rendering logic would be implemented here
-  // using Firestore. For now, they are placeholders.
+    `;
+    container.appendChild(logItem);
+  });
 }
+
+function renderUserManagement(users) {
+  const container = document.getElementById('user-management-container');
+  container.innerHTML = '';
+  users.forEach(user => {
+    const userItem = document.createElement('div');
+    userItem.classList.add('user-manage-item');
+    userItem.innerHTML = `
+      <div class="user-info">
+        <span class="username">${user.username}</span>
+        <span class="user-role">(${user.role})</span>
+        ${user.isVerified ? '<i class="fa-solid fa-circle-check verified-icon"></i>' : ''}
+      </div>
+      <div class="user-manage-actions">
+        <button class="btn secondary" data-action="toggle_verified" data-user="${user.username}">
+          ${user.isVerified ? 'Unverify' : 'Verify'}
+        </button>
+      </div>
+    `;
+    container.appendChild(userItem);
+  });
+
+  container.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'toggle_verified') {
+      const username = e.target.dataset.user;
+      socket.emit('admin_action', { action: 'toggle_user_verified', username });
+    }
+  });
+}
+
+// --- SOCKET.IO CONNECTION & LISTENERS ---
+function connectToChat(user) {
+  socket = io();
+
+  socket.on('connect', () => {
+    console.log('Connected to server with ID:', socket.id);
+    socket.emit('register_user_socket', user);
+    if (user.role === 'owner') {
+      switchScreen('admin');
+      setupAdminPanel();
+    } else {
+      switchScreen('chat');
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Disconnected from server.');
+  });
+
+  socket.on('initial_data', (data) => {
+    const formattedMessages = data.messages.map(msg => {
+      // For polls
+      if (msg.content.includes('<poll>')) {
+        const pollId = msg.content.match(/<poll>(.*?)<\/poll>/)[1];
+        const poll = data.polls.find(p => p.id === pollId);
+        if (poll) {
+          return {
+            ...msg,
+            isPoll: true,
+            question: poll.question,
+            options: poll.options
+          };
+        }
+      }
+      return msg;
+    });
+
+    renderMessages(formattedMessages);
+    renderUsers(data.users);
+  });
+
+  socket.on('user_list_update', (users) => {
+    renderUsers(users);
+  });
+
+  socket.on('new_message', (msg) => {
+    renderMessage(msg);
+  });
+
+  socket.on('new_poll', (poll) => {
+    const pollMessage = {
+      id: poll.id,
+      username: poll.creator,
+      role: 'user',
+      isPoll: true,
+      question: poll.question,
+      options: poll.options,
+      timestamp: new Date()
+    };
+    renderMessage(pollMessage);
+  });
+
+  socket.on('poll_update', (updatedPoll) => {
+    // Find the message element for the poll and re-render it
+    const messageElement = document.querySelector(`.message-item[data-poll-id="${updatedPoll.id}"]`);
+    if (messageElement) {
+      // Update poll display
+      const optionsList = messageElement.querySelector('.poll-options-list');
+      optionsList.innerHTML = ''; // Clear and re-render options
+      updatedPoll.options.forEach(option => {
+        const optionItem = document.createElement('li');
+        optionItem.classList.add('poll-option-item');
+        optionItem.innerHTML = `
+          <span class="poll-option-text">${option.text}</span>
+          <span class="poll-vote-count">${option.votes}</span>
+        `;
+        optionsList.appendChild(optionItem);
+      });
+    }
+  });
+
+  // Admin-specific listeners
+  socket.on('admin_data', (data) => {
+    renderSecurityLogs(data.securityLogs);
+    renderUserManagement(data.users);
+  });
+
+  socket.on('security_alert', (log) => {
+    renderSecurityLogs(data.securityLogs);
+    showModal('New Security Alert', `${log.type} for user ${log.user}.`);
+  });
+
+  socket.on('users_data', (users) => {
+    renderUserManagement(users);
+  });
+}
+
+// Initial Screen
+switchScreen('join');
