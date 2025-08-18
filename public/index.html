@@ -85,7 +85,10 @@
             <div class="chat-container fade-in">
                 <!-- User list -->
                 <div class="sidebar" id="user-sidebar">
-                    <h3 class="sidebar-title">Online Users</h3>
+                    <div class="sidebar-header">
+                        <h3 class="sidebar-title">Online Users</h3>
+                        <button id="settings-btn" class="sidebar-btn"><i class="fa-solid fa-gear"></i></button>
+                    </div>
                     <ul id="user-list"></ul>
                 </div>
 
@@ -212,6 +215,23 @@
             <button class="btn primary close-btn" onclick="closeModal()">Close</button>
         </div>
     </div>
+
+    <!-- 2FA Setup Modal -->
+    <div id="2fa-setup-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">Set up Two-Factor Authentication</h3>
+            <p id="2fa-setup-text">Scan the QR code below with your authenticator app (like Google Authenticator or Authy).</p>
+            <div id="2fa-qr-container">
+                <canvas id="2fa-qr-canvas"></canvas>
+            </div>
+            <form id="2fa-setup-form">
+                <input type="text" id="2fa-setup-token" placeholder="Enter 6-digit code to verify" required>
+                <button type="submit" class="btn primary">Verify & Enable 2FA</button>
+            </form>
+            <button id="close-2fa-setup-modal" class="close-btn">&times;</button>
+        </div>
+    </div>
+
 
     <!-- Library Scripts -->
     <script src="/socket.io/socket.io.js"></script>
