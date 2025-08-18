@@ -1,19 +1,25 @@
 {
-  "name": "chat-space-final",
+  "name": "chat-space",
   "version": "1.0.0",
-  "description": "A real-time chat application with advanced security",
+  "description": "A secure, real-time chat application.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "author": "Gemini",
+  "license": "ISC",
   "dependencies": {
+    "@fingerprintjs/fingerprintjs-pro-server-api": "^2.2.0",
     "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
     "express": "^4.19.2",
-    "geoip-lite": "^1.4.10",
-    "node-cron": "^3.0.3",
-    "pg": "^8.11.3",
+    "express-session": "^1.18.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.11.5",
+    "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
-    "speakeasy": "^2.0.0",
-    "useragent": "^2.3.0"
+    "speakeasy": "^2.0.0"
   }
 }
