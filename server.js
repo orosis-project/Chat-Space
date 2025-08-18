@@ -433,6 +433,16 @@ app.get('/api/admin/security-logs', async (req, res) => {
   }
 });
 
+app.get('/api/settings/approval', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT setting_value FROM settings WHERE setting_key = $1', ['require_account_approval']);
+        res.json({ requiresApproval: result.rows[0].setting_value === 'true' });
+    } catch (err) {
+        console.error('Error fetching approval setting:', err.stack);
+        res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
+});
+
 // --- Socket.IO Events ---
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
