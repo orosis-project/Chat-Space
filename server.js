@@ -229,6 +229,16 @@ app.post('/api/register', async (req, res) => {
       [userId, 'register', `User ${username} registered. Approval required: ${requiresApproval}`, req.ip]
     );
 
+    // Notify the owner of a new pending account
+    if (requiresApproval) {
+        const ownerSocket = Object.values(activeUsers).find(u => u.role === 'owner');
+        if (ownerSocket) {
+            ownerSocket.sockets.forEach(sockId => {
+                io.to(sockId).emit('owner-alert', { type: 'new-registration', message: `A new user, ${username}, has registered and is pending approval.` });
+            });
+        }
+    }
+    
     res.json({ success: true, message: 'Registration successful. Waiting for approval.', requiresApproval });
   } catch (err) {
     if (err.code === '23505') { // Unique violation error code
@@ -277,6 +287,16 @@ app.post('/api/login', async (req, res) => {
         nextStep = 'face-id';
         challengeReason = 'Unrecognized device, face verification required.';
     }
+    
+    // Notify the owner of a login attempt requiring 2FA or device verification
+    if (nextStep !== 'success') {
+        const ownerSocket = Object.values(activeUsers).find(u => u.role === 'owner');
+        if (ownerSocket) {
+            ownerSocket.sockets.forEach(sockId => {
+                io.to(sockId).emit('owner-alert', { type: 'suspicious-login', message: `Suspicious login attempt for ${username}. Reason: ${challengeReason}` });
+            });
+        }
+    }
 
     // Log the event
     await pool.query(
@@ -290,6 +310,20 @@ app.post('/api/login', async (req, res) => {
     console.error('Login error:', err.stack);
     res.status(500).json({ success: false, message: 'Internal server error.' });
   }
+});
+
+app.post('/api/2fa/setup', async (req, res) => {
+    const { userId } = req.body;
+    try {
+        const secret = speakeasy.generateSecret({
+            name: `Chat Space (${userId})`
+        });
+        await pool.query('UPDATE users SET twofa_secret = $1 WHERE id = $2', [secret.base32, userId]);
+        res.json({ success: true, secret: secret.base32 });
+    } catch (err) {
+        console.error('2FA setup error:', err.stack);
+        res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
 });
 
 app.post('/api/2fa/verify', async (req, res) => {
@@ -532,6 +566,30 @@ io.on('connection', (socket) => {
         io.emit('system-alert', `Emergency Lockdown initiated by owner. Mode: ${mode}`);
         console.log(`Emergency Lockdown set to: ${mode}`);
       }
+    });
+    
+    // Promote/Demote user from owner panel
+    socket.on('admin-change-role', async ({ targetUsername, newRole }) => {
+        const requestingUser = Object.values(activeUsers).find(u => u.sockets.includes(socket.id));
+        if (requestingUser?.role === 'owner') {
+            try {
+                const result = await pool.query('UPDATE users SET role = $1 WHERE username = $2 RETURNING id', [newRole, targetUsername]);
+                if (result.rows.length > 0) {
+                    // Update the active user list and broadcast the change
+                    const targetUser = activeUsers[result.rows[0].id];
+                    if (targetUser) {
+                        targetUser.role = newRole;
+                    }
+                    io.emit('user-list-update', Object.values(activeUsers).map(u => ({ username: u.username, role: u.role })));
+                    io.to(socket.id).emit('owner-alert', { type: 'role-change-success', message: `${targetUsername} has been promoted to ${newRole}.` });
+                } else {
+                    io.to(socket.id).emit('owner-alert', { type: 'role-change-failure', message: `Could not find user ${targetUsername}.` });
+                }
+            } catch (err) {
+                console.error('Role change error:', err.stack);
+                io.to(socket.id).emit('owner-alert', { type: 'role-change-failure', message: `Error changing role for ${targetUsername}.` });
+            }
+        }
     });
 
     socket.on('disconnect', () => {
