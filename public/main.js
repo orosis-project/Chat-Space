@@ -453,6 +453,34 @@ function renderUserManagement(users) {
   });
 }
 
+// --- USER SETTINGS FUNCTIONS & LISTENERS ---
+function setupSettingsPanel() {
+    // Open settings modal
+    document.getElementById('settings-btn').addEventListener('click', () => {
+        document.getElementById('settings-modal').classList.remove('hidden');
+    });
+    // Close settings modal
+    document.getElementById('close-settings-modal').addEventListener('click', () => {
+        document.getElementById('settings-modal').classList.add('hidden');
+    });
+    // Open 2FA setup modal
+    document.getElementById('2fa-setup-btn').addEventListener('click', () => {
+        document.getElementById('settings-modal').classList.add('hidden');
+        document.getElementById('2fa-setup-modal').classList.remove('hidden');
+        socket.emit('request_2fa_setup');
+    });
+    // Close 2FA setup modal
+    document.getElementById('close-2fa-setup-modal').addEventListener('click', () => {
+        document.getElementById('2fa-setup-modal').classList.add('hidden');
+    });
+    // Submit 2FA setup form
+    document.getElementById('2fa-setup-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const token = document.getElementById('2fa-setup-token').value;
+        socket.emit('verify_2fa_setup', { token });
+    });
+}
+
 // --- SOCKET.IO CONNECTION & LISTENERS ---
 function connectToChat(user) {
   socket = io();
@@ -465,6 +493,7 @@ function connectToChat(user) {
       setupAdminPanel();
     } else {
       switchScreen('chat');
+      setupSettingsPanel();
     }
   });
 
@@ -547,6 +576,29 @@ function connectToChat(user) {
 
   socket.on('users_data', (users) => {
     renderUserManagement(users);
+  });
+  
+  // 2FA Setup listeners
+  socket.on('2fa_setup_response', (data) => {
+      if (data.success) {
+          const qrCanvas = document.getElementById('2fa-qr-canvas');
+          QRCode.toCanvas(qrCanvas, data.qrCode, (err) => {
+              if (err) console.error(err);
+              document.getElementById('2fa-setup-text').textContent = 'Scan this QR code and enter the 6-digit code below to confirm.';
+              document.getElementById('2fa-qr-container').style.display = 'block';
+          });
+      } else {
+          showModal('2FA Setup Error', data.message);
+      }
+  });
+
+  socket.on('2fa_setup_verify_response', (data) => {
+      if (data.success) {
+          showModal('Success', data.message);
+          document.getElementById('2fa-setup-modal').classList.add('hidden');
+      } else {
+          showModal('Verification Failed', data.message);
+      }
   });
 }
 
