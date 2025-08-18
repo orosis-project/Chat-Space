@@ -73,7 +73,7 @@
                 <p>Unrecognized device. You can ask your buddy for approval.</p>
                 <input type="text" id="buddy-username" class="input-field" placeholder="Your buddy's username">
                 <button id="buddy-request-button" class="cta-button">Send Request</button>
-            </div>
+            </form>
             <p id="verification-message" class="error-message"></p>
         </div>
     </div>
@@ -109,6 +109,20 @@
     </div>
 
     <!-- Modals & Panels -->
+    <div id="dm-panel" class="modal-overlay hidden">
+      <div class="dm-card">
+        <div class="dm-header">
+          <h3 id="dm-recipient-name">Direct Message</h3>
+          <button class="close-dm-button">&times;</button>
+        </div>
+        <div id="dm-messages" class="dm-messages-container"></div>
+        <form id="dm-form" class="dm-input-form">
+          <input type="text" id="dm-input" class="message-input-field" placeholder="Type a message...">
+          <button type="submit" class="send-button">Send</button>
+        </form>
+      </div>
+    </div>
+
     <div id="settings-modal" class="modal-overlay hidden">
       <div class="modal-content">
         <div class="modal-header">
