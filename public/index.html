@@ -205,9 +205,37 @@
       <!-- Admin UI elements will be populated here by JavaScript -->
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    
     <script src="https://openfpcdn.io/fingerprintjs/v4/iife.min.js"></script>
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+
+    <script type="module">
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxkpeqouk5BKpegSFrIHewpT1F6uGs1Jw",
+            authDomain: "chat-space-cb139.firebaseapp.com",
+            projectId: "chat-space-cb139",
+            storageBucket: "chat-space-cb139.firebasestorage.app",
+            messagingSenderId: "212403085544",
+            appId: "1:212403085544:web:8171fae3723a8b4669695d",
+            measurementId: "G-XE8RTXRJ6L"
+        };
+        
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = app.auth();
+        const db = app.firestore();
+        const analytics = firebase.analytics();
+
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+    </script>
     <script src="/main.js"></script>
 </body>
 </html>
